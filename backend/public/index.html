@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WebTools CMS — Website Re-generator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>">
+</head>
+<body>
+  <!-- App Shell -->
+  <div id="app">
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <div class="logo">
+          <span class="logo-icon">⚡</span>
+          <span class="logo-text">WebTools<span class="logo-accent">CMS</span></span>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav" id="sidebarNav">
+        <div class="nav-section">
+          <span class="nav-label">TỔNG QUAN</span>
+          <a href="#" class="nav-item active" data-view="dashboard" onclick="App.navigate('dashboard')">
+            <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+            Dashboard
+          </a>
+          <a href="#" class="nav-item" data-view="new-site" onclick="App.navigate('new-site')">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+            Thêm Website Mới
+          </a>
+        </div>
+        
+        <!-- Dynamic site sections (populated by JS) -->
+        <div class="nav-section" id="currentSiteNav" style="display:none">
+          <span class="nav-label">WEBSITE HIỆN TẠI</span>
+          <span class="nav-label" id="currentSiteLabel" style="color:var(--accent-light);font-size:11px;padding-top:0"></span>
+          <a href="#" class="nav-item" data-view="pages" onclick="App.navigate('pages')">
+            <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            Các Trang
+          </a>
+          <a href="#" class="nav-item" data-view="media" onclick="App.navigate('media')">
+            <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+            Media Library
+          </a>
+          <a href="#" class="nav-item" data-view="seo" onclick="App.navigate('seo')">
+            <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            SEO Manager
+          </a>
+          <a href="#" class="nav-item" data-view="globals" onclick="App.navigate('globals')">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+            Global Variables
+          </a>
+          <a href="#" class="nav-item" data-view="search" onclick="App.navigate('search')">
+            <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            Tìm Kiếm
+          </a>
+          <a href="#" class="nav-item" data-view="i18n" onclick="App.navigate('i18n')">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+            Đa Ngôn Ngữ (i18n)
+          </a>
+          <a href="#" class="nav-item" data-view="history" onclick="App.navigate('history')">
+            <svg viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.47"/></svg>
+            Lịch Sử Phiên Bản
+          </a>
+          <a href="#" class="nav-item" data-view="export" onclick="App.navigate('export')">
+            <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Xuất File (Export)
+          </a>
+        </div>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="sidebar-status">
+          <div class="status-dot" id="apiStatusDot"></div>
+          <span id="apiStatusText">Kết nối...</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <!-- Top Bar -->
+      <header class="topbar">
+        <div class="topbar-left">
+          <button class="btn-icon" onclick="App.toggleSidebar()" title="Toggle Sidebar">
+            <svg viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+          </button>
+          <nav class="breadcrumb" id="breadcrumb">
+            <span>Dashboard</span>
+          </nav>
+        </div>
+        <div class="topbar-right" id="topbarActions"></div>
+      </header>
+
+      <!-- Views (one shown at a time) -->
+      <div class="view-container" id="viewContainer">
+
+        <!-- VIEW: Dashboard (Sites List) -->
+        <div class="view active" id="view-dashboard">
+          <div class="view-header">
+            <div>
+              <h1 class="view-title">Websites của bạn</h1>
+              <p class="view-subtitle">Quản lý tất cả websites đã import vào hệ thống</p>
+            </div>
+            <button class="btn btn-primary" onclick="App.navigate('new-site')">
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+              Thêm Website Mới
+            </button>
+          </div>
+          <div class="stats-bar" id="statsBar"></div>
+          <div class="sites-grid" id="sitesGrid">
+            <div class="loading-state">
+              <div class="spinner"></div>
+              <p>Đang tải danh sách websites...</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- VIEW: New Site -->
+        <div class="view" id="view-new-site">
+          <div class="view-header">
+            <div>
+              <h1 class="view-title">Thêm Website Mới</h1>
+              <p class="view-subtitle">Nhập URL để bắt đầu crawl và tái chế website</p>
+            </div>
+          </div>
+          <div class="form-card">
+            <div class="form-group">
+              <label class="form-label">URL Website</label>
+              <div class="input-with-icon">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                <input type="url" id="crawlUrl" class="form-input" placeholder="https://example.com" autofocus>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Tên Website (tùy chọn)</label>
+              <input type="text" id="crawlName" class="form-input" placeholder="Tên để phân biệt trong dashboard">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Cài Đặt Crawl</label>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                <div>
+                  <label class="form-label" style="font-size:12px">Số trang tối đa</label>
+                  <input type="number" id="crawlMaxPages" class="form-input" value="50" min="1" max="500" placeholder="50">
+                </div>
+                <div>
+                  <label class="form-label" style="font-size:12px">Số trang/batch</label>
+                  <input type="number" id="crawlWaitTime" class="form-input" value="1000" min="500" max="5000" placeholder="1000ms">
+                </div>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Ngoại trừ thư mục (Exclude Paths)</label>
+              <input type="text" id="crawlExcludePaths" class="form-input" placeholder="VD: /en/, /ja/, /wp-admin/, /tag/">
+              <small style="color:var(--text-muted);font-size:12px;margin-top:4px;display:block">Các đường link chứa những từ khóa này sẽ bị bỏ qua. Phân cách bằng dấu phẩy (,).</small>
+            </div>
+            <div class="crawl-info-box">
+              <div class="crawl-info-item">
+                <svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                <span>Tự động tải toàn bộ trang & assets</span>
+              </div>
+              <div class="crawl-info-item">
+                <svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                <span>Xóa mã tracking & quảng cáo tự động</span>
+              </div>
+              <div class="crawl-info-item">
+                <svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                <span>Tạo CMS dashboard để quản lý nội dung</span>
+              </div>
+            </div>
+            <button class="btn btn-primary btn-lg" id="startCrawlBtn" onclick="Crawl.start()">
+              <svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+              Bắt Đầu Crawl
+            </button>
+          </div>
+
+          <!-- Crawl Progress -->
+          <div class="crawl-progress-card" id="crawlProgressCard" style="display:none">
+            <div class="progress-header">
+              <h3 id="progressTitle">Đang crawl website...</h3>
+              <span class="progress-percent" id="progressPercent">0%</span>
+            </div>
+            <div class="progress-bar-wrap">
+              <div class="progress-bar" id="progressBar" style="width:0%"></div>
+            </div>
+            <p class="progress-message" id="progressMessage">Khởi tạo...</p>
+            <div class="progress-steps" id="progressSteps"></div>
+          </div>
+        </div>
+
+        <!-- VIEW: Pages -->
+        <div class="view" id="view-pages">
+          <div class="view-header">
+            <div>
+              <h1 class="view-title">Danh Sách Trang</h1>
+              <p class="view-subtitle">Xem và chỉnh sửa từng trang của website</p>
+            </div>
+            <button class="btn btn-ghost" onclick="window.open('/api/sites/' + currentSiteSlug + '/serve/', '_blank')" title="Xem trang trực tiếp">
+              <svg viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+              Xem Live
+            </button>
+          </div>
+          <div id="pagesGrid" class="pages-grid"></div>
+        </div>
+
+        <!-- VIEW: Media Library -->
+        <div class="view" id="view-media">
+          <div class="view-header">
+            <div>
+              <h1 class="view-title">Media Library</h1>
+              <p class="view-subtitle">Quản lý tất cả hình ảnh với tên cố định (fixed-name)</p>
+            </div>
+          </div>
+          <div id="mediaGrid" class="media-grid"></div>
+        </div>
+
+        <!-- VIEW: SEO Manager -->
+        <div class="view" id="view-seo">
+          <div class="view-header">
+            <div>
+              <h1 class="view-title">SEO Manager</h1>
+              <p class="view-subtitle">Tối ưu meta tags cho từng trang</p>
+            </div>
+          </div>
+          <div id="seoTable" class="seo-table-wrap"></div>
+        </div>
+
+        <!-- VIEW: Global Variables -->
+        <div class="view" id="view-globals">
+          <div class="view-header">
+            <div>
+              <h1 class="view-title">Global Variables</h1>
+              <p class="view-subtitle">Sửa 1 lần, cập nhật toàn bộ website tự động</p>
+            </div>
+            <button class="btn btn-primary" onclick="Globals.showAddModal()">
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+              Thêm Variable
+            </button>
+          </div>
+          <div id="globalsTable"></div>
+        </div>
+
+        <!-- VIEW: History -->
+        <div class="view" id="view-history">
+          <div class="view-header">
+            <div>
+              <h1 class="view-title">Lịch Sử Phiên Bản</h1>
+              <p class="view-subtitle">Xem và khôi phục các phiên bản đã lưu</p>
+            </div>
+            <button class="btn btn-primary" onclick="History.saveNow()">
+              <svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+              Lưu Ngay
+            </button>
+          </div>
+          <div id="historyList" class="history-list"></div>
+        </div>
+
+        <!-- VIEW: Search & Replace -->
+        <div class="view" id="view-search">
+          <div class="view-header">
+            <div>
+              <h1 class="view-title">Tìm Kiếm Nội Dung</h1>
+              <p class="view-subtitle">Tìm và thay thế văn bản trên toàn bộ website</p>
+            </div>
+          </div>
+          <div id="searchPanel">
+            <div class="form-card">
+              <div style="display:grid;grid-template-columns:1fr auto;gap:12px;align-items:end;margin-bottom:16px">
+                <div>
+                  <label class="form-label">Tìm kiếm</label>
+                  <input type="text" id="searchQuery" class="form-input" placeholder="Nhập từ khóa cần tìm..." oninput="Search.debounce(this.value)">
+                </div>
+                <select id="searchTypeFilter" class="form-input" style="width:140px" onchange="Search.run()">
+                  <option value="">Tất cả loại</option>
+                  <option value="text">Text</option>
+                  <option value="html">HTML</option>
+                  <option value="image">Image</option>
+                </select>
+              </div>
+              <div style="display:flex;gap:12px;margin-bottom:20px">
+                <button class="btn btn-primary" onclick="Search.run()">
+                  <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                  Tìm Kiếm
+                </button>
+                <button class="btn btn-ghost" onclick="Search.showReplacePanel()" id="btnShowReplace">
+                  ✏️ Thay Thế Hàng Loạt
+                </button>
+              </div>
+              <!-- Replace panel (hidden by default) -->
+              <div id="replacePanel" style="display:none;background:var(--bg-secondary);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:16px">
+                <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:12px;align-items:end">
+                  <div>
+                    <label class="form-label">Tìm</label>
+                    <input type="text" id="replaceFind" class="form-input" placeholder="Văn bản cần tìm...">
+                  </div>
+                  <div>
+                    <label class="form-label">Thay bằng</label>
+                    <input type="text" id="replaceWith" class="form-input" placeholder="Văn bản mới...">
+                  </div>
+                  <button class="btn btn-primary" onclick="Search.doReplace()" style="white-space:nowrap">⚡ Thay Thế</button>
+                </div>
+                <p style="font-size:12px;color:var(--yellow);margin-top:8px">⚠️ Thao tác này sẽ cập nhật tất cả các trang chứa văn bản. Không thể hoàn tác nếu chưa lưu checkpoint!</p>
+              </div>
+            </div>
+          </div>
+          <div id="searchResults"></div>
+        </div>
+
+        <!-- VIEW: i18n Multilingual Manager -->
+        <div class="view" id="view-i18n">
+          <div class="view-header">
+            <div>
+              <h1 class="view-title">Đa Ngôn Ngữ (i18n)</h1>
+              <p class="view-subtitle">Clone web → Phân tích → Dịch tự động → Xuất static HTML đa ngữ</p>
+            </div>
+            <button class="btn btn-primary" onclick="I18n.showAddLanguageModal()">
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+              Thêm Ngôn Ngữ
+            </button>
+          </div>
+          <div id="i18nView"></div>
+        </div>
+
+        <!-- VIEW: Export -->
+        <div class="view" id="view-export">
+          <div class="view-header">
+            <div>
+              <h1 class="view-title">Xuất File (Export)</h1>
+              <p class="view-subtitle">Tải toàn bộ website dưới dạng ZIP để deploy</p>
+            </div>
+          </div>
+          <div id="exportPanel"></div>
+        </div>
+
+      </div>
+    </main>
+  </div>
+
+  <!-- Visual Editor Modal -->
+  <div class="modal-overlay" id="visualEditorModal" style="display:none">
+    <div class="modal modal-fullscreen">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <h2 class="modal-title">Visual Editor</h2>
+          <span class="edit-mode-badge">EDIT MODE</span>
+        </div>
+        <div class="modal-actions">
+          <span class="edit-hint">🖱️ Di chuột vào nội dung để chỉnh sửa</span>
+          <button class="btn btn-ghost" onclick="VisualEditor.close()">✕ Đóng</button>
+        </div>
+      </div>
+      <div class="visual-editor-frame">
+        <iframe id="editorIframe" src="" frameborder="0"></iframe>
+      </div>
+    </div>
+  </div>
+
+  <!-- Upload Image Modal -->
+  <div class="modal-overlay" id="uploadModal" style="display:none">
+    <div class="modal modal-sm">
+      <div class="modal-header">
+        <h2 class="modal-title">Thay Thế Ảnh</h2>
+        <button class="btn-icon" onclick="Media.closeUpload()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="upload-current">
+          <p class="upload-label">Ảnh hiện tại:</p>
+          <img id="uploadCurrentImg" src="" alt="Current" class="upload-preview">
+          <p class="upload-fixed-name">Tên cố định: <code id="uploadFixedName"></code></p>
+        </div>
+        <div class="upload-zone" id="uploadZone" onclick="document.getElementById('uploadFileInput').click()">
+          <input type="file" id="uploadFileInput" accept="image/*" style="display:none" onchange="Media.handleUpload(this)">
+          <svg viewBox="0 0 24 24"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>
+          <p>Click hoặc kéo ảnh vào đây</p>
+          <small>JPG, PNG, WebP — Max 20MB</small>
+        </div>
+        <p class="upload-note">⚡ Ảnh mới sẽ được tự động resize theo kích thước ảnh cũ</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- SEO Edit Modal -->
+  <div class="modal-overlay" id="seoModal" style="display:none">
+    <div class="modal modal-md">
+      <div class="modal-header">
+        <h2 class="modal-title">Chỉnh Sửa SEO</h2>
+        <button class="btn-icon" onclick="SEO.closeModal()">✕</button>
+      </div>
+      <div class="modal-body" id="seoModalBody"></div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="SEO.closeModal()">Hủy</button>
+        <button class="btn btn-primary" onclick="SEO.save()">Lưu SEO</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Global Var Modal -->
+  <div class="modal-overlay" id="globalModal" style="display:none">
+    <div class="modal modal-sm">
+      <div class="modal-header">
+        <h2 class="modal-title" id="globalModalTitle">Thêm Variable</h2>
+        <button class="btn-icon" onclick="Globals.closeModal()">✕</button>
+      </div>
+      <div class="modal-body" id="globalModalBody"></div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="Globals.closeModal()">Hủy</button>
+        <button class="btn btn-primary" onclick="Globals.save()">Lưu</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Scripts -->
+  <script src="/js/dashboard.js?v=3"></script>
+  <script src="/js/media.js"></script>
+  <script src="/js/seo.js"></script>
+  <script src="/js/globals.js"></script>
+  <script src="/js/history.js"></script>
+  <script src="/js/search.js"></script>
+  <script src="/js/export.js"></script>
+  <script src="/js/i18n.js?v=3"></script>
+  <script src="/js/cms-visual-editor.js"></script>
+</body>
+</html>

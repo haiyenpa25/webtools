@@ -1,0 +1,32 @@
+{
+  "name": "webtools-regenerator-backend",
+  "version": "1.0.0",
+  "description": "Website Re-generator CMS Backend",
+  "main": "src/app.js",
+  "scripts": {
+    "start": "node src/app.js",
+    "dev": "nodemon src/app.js",
+    "migrate": "node src/config/migrate.js"
+  },
+  "dependencies": {
+    "archiver": "^7.0.1",
+    "axios": "^1.6.7",
+    "cheerio": "^1.0.0-rc.12",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.1",
+    "express": "^4.18.2",
+    "express-fileupload": "^1.4.3",
+    "morgan": "^1.10.0",
+    "mysql2": "^3.6.5",
+    "node-html-parser": "^6.1.13",
+    "playwright": "^1.41.1",
+    "sanitize-html": "^2.12.1",
+    "sharp": "^0.33.2",
+    "slugify": "^1.6.6",
+    "socket.io": "^4.7.4",
+    "uuid": "^9.0.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.3"
+  }
+}
