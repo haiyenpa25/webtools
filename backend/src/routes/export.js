@@ -30,6 +30,10 @@ router.get('/:siteId', async (req, res) => {
       'SELECT * FROM schema_fields WHERE site_id = ?',
       [site.id]
     );
+    const [mediaItems] = await db.execute(
+      'SELECT original_name, fixed_name, file_path FROM media WHERE site_id = ?',
+      [site.id]
+    );
 
     // Build field map theo page
     const fieldsByPage = {};
@@ -60,18 +64,68 @@ router.get('/:siteId', async (req, res) => {
       const pageFields = fieldsByPage[page.id] || {};
       html = injectContent(html, pageFields);
 
-      // Fix internal links for static deployment
+      // Fix internal links and asset paths for static deployment
       const $ = cheerio.load(html, { decodeEntities: false });
+      // 1. Rewrite Internal Links
       $('a[href]').each((i, el) => {
-        const href = $(el).attr('href') || '';
-        // Convert /api/sites/slug/serve/path → relative path
-        if (href.includes('/api/sites/')) {
-          const match = href.match(/serve(.*)$/);
-          if (match) {
-            const relPath = match[1] || '/';
-            $(el).attr('href', relPath === '/' ? 'index.html' : relPath.replace(/^\//, '') + '.html');
+        let href = $(el).attr('href') || '';
+        // Bắt link local / link api test / link gốc
+        if (href.includes('/api/sites/') || href.startsWith(site.original_url) || href.startsWith('/')) {
+          let relPath = href.replace(site.original_url, '');
+          if (relPath.includes('/serve/')) {
+             relPath = relPath.split('/serve')[1] || '/';
+          }
+          if (!relPath.startsWith('/')) relPath = '/' + relPath;
+           
+          // Strip queries/hashes
+          relPath = relPath.split('?')[0].split('#')[0];
+
+          if (relPath === '/' || relPath === '') {
+             $(el).attr('href', 'index.html');
+          } else {
+             const fixedPath = relPath.replace(/^\//, '').replace(/\//g, '_').replace(/[^a-zA-Z0-9_.-]/g, '') + '.html';
+             $(el).attr('href', fixedPath);
           }
         }
+      });
+
+      // 2. Rewrite CSS paths
+      $('link[rel="stylesheet"]').each((i, el) => {
+         let href = $(el).attr('href') || '';
+         if (href) {
+           const filename = href.split('/').pop().split('?')[0];
+           $(el).attr('href', 'assets/css/' + filename);
+         }
+      });
+
+      // 3. Rewrite JS paths
+      $('script[src]').each((i, el) => {
+         let src = $(el).attr('src') || '';
+         if (src) {
+           const filename = src.split('/').pop().split('?')[0];
+           $(el).attr('src', 'assets/js/' + filename);
+         }
+      });
+
+      // 4. Rewrite Images 
+      $('img[src]').each((i, el) => {
+         let src = $(el).attr('src') || '';
+         if (src && !src.startsWith('data:')) {
+           const filename = src.split('/').pop().split('?')[0];
+           
+           // Look for standard mappings from DB
+           const matchedMedia = mediaItems.find(m => m.original_name === filename || m.fixed_name === filename);
+           if (matchedMedia && matchedMedia.file_path) {
+             const ext = filename.split('.').pop();
+             const cleanPath = matchedMedia.file_path.replace(/\\/g, '/'); // ensure standard slash
+             // media.file_path format: images/global/abc.jpg or images/index/xyz.png
+             $(el).attr('src', cleanPath);
+           } else {
+             // Fallback
+             const fixedName = filename.replace(/[^a-zA-Z0-9._-]/g, '_');
+             $(el).attr('src', 'images/global/' + fixedName); // safe fallback assuming global if not found
+           }
+         }
       });
 
       // Xác định output filename trong ZIP
@@ -91,14 +145,25 @@ router.get('/:siteId', async (req, res) => {
       archive.directory(jsDir, 'assets/js');
     }
 
-    // Add images
+    // Add images recursively (ignores root files conceptually if we strict to subdirs, but directory() copies all)
     const imagesDir = path.join(siteDir, 'images');
     if (fs.existsSync(imagesDir)) {
-      // Add only main images (not thumbs)
-      const images = fs.readdirSync(imagesDir).filter(f => !fs.statSync(path.join(imagesDir, f)).isDirectory());
-      images.forEach(img => {
-        archive.file(path.join(imagesDir, img), { name: `images/${img}` });
-      });
+       // We use a custom recursive approach to skip 'thumbs' directory explicitly
+       const includeDirectory = (dirPath, zipPath) => {
+          if (!fs.existsSync(dirPath)) return;
+          const items = fs.readdirSync(dirPath);
+          items.forEach(item => {
+             if (item === 'thumbs') return; // ignore thumbs
+             const fullPath = path.join(dirPath, item);
+             const relativeZip = zipPath ? `${zipPath}/${item}` : item;
+             if (fs.statSync(fullPath).isDirectory()) {
+                includeDirectory(fullPath, relativeZip);
+             } else {
+                archive.file(fullPath, { name: relativeZip });
+             }
+          });
+       };
+       includeDirectory(imagesDir, 'images');
     }
 
     // Add README

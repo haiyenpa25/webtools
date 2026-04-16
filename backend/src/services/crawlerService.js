@@ -35,9 +35,10 @@ async function crawlSite(siteUrl, siteSlug, uploadDir, onProgress, options = {})
   });
 
   const visited = new Set();
-  const queue = [siteUrl];
+  const queued = new Set([siteUrl]);
+  const queue = [{ url: siteUrl, priority: 1 }];
   const pages = [];
-  const assetMap = { css: [], js: [], images: [] };
+  const assetMap = { css: [], js: [], images: {} };
   
   console.log(`🕷️ Starting crawl: ${siteUrl} (max: ${maxPages} pages)`);
   onProgress?.({ status: 'crawling', progress: 5, message: `Khởi động crawl (max: ${maxPages} trang)...` });
@@ -46,7 +47,8 @@ async function crawlSite(siteUrl, siteSlug, uploadDir, onProgress, options = {})
   let crawledPages = 0;
 
   while (queue.length > 0 && crawledPages < maxPages) {
-    const url = queue.shift();
+    const item = queue.shift();
+    const url = item.url;
     if (visited.has(url)) continue;
     visited.add(url);
 
@@ -100,23 +102,44 @@ async function crawlSite(siteUrl, siteSlug, uploadDir, onProgress, options = {})
 
       // Tìm tất cả links trong trang
       const links = await page.evaluate((origin) => {
-        return Array.from(document.querySelectorAll('a[href]'))
-          .map(a => a.href)
-          .filter(href => href.startsWith(origin) && !href.includes('#') && !href.includes('?'));
+        const results = [];
+        const anchors = document.querySelectorAll('a[href]');
+        
+        anchors.forEach(a => {
+          const href = a.href;
+          if (!href.startsWith(origin) || href.includes('#')) return;
+
+          let cleanUrl;
+          try {
+             // Chống miss page có chứa tham số ?page=2, loại bỏ string tracking
+             const u = new URL(href);
+             ['utm_source', 'utm_medium', 'utm_campaign', 'fbclid'].forEach(param => u.searchParams.delete(param));
+             cleanUrl = u.toString();
+          } catch(e) { cleanUrl = href; }
+
+          let priority = 3;
+          if (a.closest('nav, header, .menu, #menu, .dropdown-menu, .navigation')) priority = 1;
+          else if (a.closest('main, article, .content') || a.matches('.btn, button, [class*="btn-"]')) priority = 2;
+
+          results.push({ url: cleanUrl, priority });
+        });
+        
+        return results;
       }, baseUrl.origin);
 
       // Thêm links mới vào queue
-      links.forEach(link => {
-        const cleanLink = link.split('#')[0].split('?')[0];
-        
+      links.forEach(({ url: cleanLink, priority }) => {
         // Kiểm tra xem link có nằm trong danh sách exclude bỏ qua không
         const isExcluded = excludePaths.some(ex => cleanLink.includes(ex));
 
-        if (!isExcluded && !visited.has(cleanLink) && !queue.includes(cleanLink)) {
-          queue.push(cleanLink);
+        if (!isExcluded && !visited.has(cleanLink) && !queued.has(cleanLink)) {
+          queued.add(cleanLink);
+          queue.push({ url: cleanLink, priority });
           totalPages++;
         }
       });
+      // Ưu tiên Sitemap: link menu sẽ được crawl trước để tránh miss trang nếu vuợt quá giới hạn
+      queue.sort((a, b) => a.priority - b.priority);
 
       // Thu thập CSS và JS assets
       const assets = await page.evaluate(() => {
@@ -125,14 +148,22 @@ async function crawlSite(siteUrl, siteSlug, uploadDir, onProgress, options = {})
         const jsLinks = Array.from(document.querySelectorAll('script[src]'))
           .map(el => el.src).filter(s => s.startsWith('http'));
         const imgSrcs = Array.from(document.querySelectorAll('img[src]'))
-          .map(el => el.src).filter(s => s.startsWith('http'));
+          .filter(el => {
+            if (!el.src.startsWith('http')) return false;
+            // Lọc các pixel tracking (ảnh 1x1, 5x5...)
+            if (el.width && el.width <= 5 && el.height && el.height <= 5) return false;
+            return true;
+          })
+          .map(el => el.src);
         return { css: cssLinks, js: jsLinks, images: imgSrcs };
       });
 
-      // Accumulate assets (fix: push instead of spread-assign)
+      // Accumulate assets
       assets.css.forEach(u => !assetMap.css.includes(u) && assetMap.css.push(u));
       assets.js.forEach(u => !assetMap.js.includes(u) && assetMap.js.push(u));
-      assets.images.forEach(u => !assetMap.images.includes(u) && assetMap.images.push(u));
+      
+      if (!assetMap.images[pagePath]) assetMap.images[pagePath] = [];
+      assets.images.forEach(u => !assetMap.images[pagePath].includes(u) && assetMap.images[pagePath].push(u));
 
       crawledPages++;
       const progress = Math.min(10 + Math.round((crawledPages / Math.max(totalPages, 1)) * 50), 60);
@@ -161,20 +192,42 @@ async function crawlSite(siteUrl, siteSlug, uploadDir, onProgress, options = {})
     await downloadAsset(jsUrl, siteDir, 'assets/js', baseUrl.origin);
   }
 
-  // Download images với fixed names
-  onProgress?.({ status: 'images', progress: 85, message: 'Đang tải và optimize ảnh...' });
-  const uniqueImages = [...new Set(assetMap.images || [])];
+  // Download images và tổ chức thư mục Semantic
+  onProgress?.({ status: 'images', progress: 85, message: 'Đang tải và optimize ảnh (phân loại thư mục)...' });
   const mediaItems = [];
+  const imageCounts = {};
+
+  // Tính số lần xuất hiện của các hình ảnh để xác định 'global'
+  for (const p in assetMap.images) {
+     const imgs = [...new Set(assetMap.images[p])];
+     imgs.forEach(img => {
+         imageCounts[img] = (imageCounts[img] || 0) + 1;
+     });
+  }
+
+  const allUniqueImages = Object.keys(imageCounts);
   
-  for (const imgUrl of uniqueImages.slice(0, 100)) {
+  for (const imgUrl of allUniqueImages.slice(0, 100)) {
+    const count = imageCounts[imgUrl];
+    let targetFolder = 'global';
+    
+    if (count === 1) {
+      const findingPagePath = Object.keys(assetMap.images).find(p => assetMap.images[p].includes(imgUrl));
+      if (findingPagePath) {
+        targetFolder = findingPagePath === '/' ? 'index' : findingPagePath.replace(/^\//, '').replace(/\//g, '_');
+      }
+    }
+
     const filename = imgUrl.split('/').pop().split('?')[0];
     const fixedName = filename.replace(/[^a-zA-Z0-9._-]/g, '_') || `image_${Date.now()}.jpg`;
-    const result = await downloadAndOptimizeImage(imgUrl, fixedName, siteDir);
+    
+    const result = await downloadAndOptimizeImage(imgUrl, fixedName, siteDir, targetFolder);
     if (result) {
       mediaItems.push({
         fixedName,
         originalUrl: imgUrl,
-        ...result
+        folder: targetFolder,
+        ...result // includes path like: images/global/abc.jpg
       });
     }
   }

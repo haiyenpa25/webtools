@@ -10,8 +10,8 @@ const fs = require('fs');
  * Upload và overwrite ảnh theo tên cố định
  * Đây là cơ chế "Fixed Naming Asset Manager"
  */
-async function overwriteImage(inputBuffer, fixedName, siteDir) {
-  const outputPath = path.join(siteDir, 'images', fixedName);
+async function overwriteImage(inputBuffer, fixedName, siteDir, folderName = '') {
+  const outputPath = path.join(siteDir, 'images', folderName, fixedName);
   
   // Đảm bảo thư mục tồn tại
   fs.mkdirSync(path.dirname(outputPath), { recursive: true });
@@ -100,7 +100,7 @@ async function createThumbnail(imagePath, thumbnailDir) {
 /**
  * Download và optimize ảnh từ remote URL
  */
-async function downloadAndOptimizeImage(imageUrl, fixedName, siteDir) {
+async function downloadAndOptimizeImage(imageUrl, fixedName, siteDir, folderName = '') {
   const axios = require('axios');
   
   try {
@@ -116,7 +116,7 @@ async function downloadAndOptimizeImage(imageUrl, fixedName, siteDir) {
     const meta = await sharp(buffer).metadata();
     if (!meta.format) throw new Error('Not a valid image');
 
-    return await overwriteImage(buffer, fixedName, siteDir);
+    return await overwriteImage(buffer, fixedName, siteDir, folderName);
   } catch (err) {
     console.error(`⚠️ Could not download image ${imageUrl}:`, err.message);
     return null;
