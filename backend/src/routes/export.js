@@ -43,6 +43,7 @@ router.get('/:siteId', async (req, res) => {
     });
 
     const { injectContent } = require('../services/schemaService');
+    const { getSiteLanguages, buildTranslatedHtml } = require('../services/i18nService');
 
     // Set response headers for ZIP download
     const zipFilename = `${site.slug}-export-${Date.now()}.zip`;
@@ -53,87 +54,231 @@ router.get('/:siteId', async (req, res) => {
     archive.on('error', err => { throw err; });
     archive.pipe(res);
 
-    // Add each page HTML (với content đã inject)
-    for (const page of pages) {
-      const htmlFilePath = path.join(siteDir, 'html', page.html_file);
-      if (!fs.existsSync(htmlFilePath)) continue;
+    const mode = req.query.mode || 'php'; // Tùy chọn 'php' hoặc 'html'
+    const defaultBaseUrl = req.query.base_url || `/${site.slug}/`;
 
-      let html = fs.readFileSync(htmlFilePath, 'utf8');
-      
-      // Inject current content từ DB
-      const pageFields = fieldsByPage[page.id] || {};
-      html = injectContent(html, pageFields);
+    // Khởi tạo Custom Config File (Nếu là PHP)
+    if (mode === 'php') {
+      const configCode = `<?php\n// Tự động sinh bởi WebTools CMS\n// Cấu hình URL Gốc của thư mục để tránh gãy link tài sản\ndefine('BASE_URL', '${defaultBaseUrl}');\n?>`;
+      archive.append(configCode, { name: 'export_config.php' });
+    } else {
+      // Html config, no-op or generate a simple js config if needed
+    }
 
-      // Fix internal links and asset paths for static deployment
-      const $ = cheerio.load(html, { decodeEntities: false });
-      // 1. Rewrite Internal Links
-      $('a[href]').each((i, el) => {
-        let href = $(el).attr('href') || '';
-        // Bắt link local / link api test / link gốc
-        if (href.includes('/api/sites/') || href.startsWith(site.original_url) || href.startsWith('/')) {
-          let relPath = href.replace(site.original_url, '');
-          if (relPath.includes('/serve/')) {
-             relPath = relPath.split('/serve')[1] || '/';
+    let _extractedHeader = '';
+    let _extractedFooter = '';
+
+    const siteLanguages = await getSiteLanguages(site.id);
+    if (!siteLanguages.length) {
+       siteLanguages.push({ lang_code: 'vi', is_source: 1 });
+    }
+    const sourceLang = siteLanguages.find(l => l.is_source) || siteLanguages[0];
+
+    // Lặp qua từng ngôn ngữ
+    for (const lang of siteLanguages) {
+      const isSource = lang.is_source;
+      const langPrefix = isSource ? '' : `${lang.lang_code}/`;
+      const langBaseUrl = isSource ? defaultBaseUrl : `${defaultBaseUrl}${lang.lang_code}/`;
+
+      // Add each page HTML
+      for (const page of pages) {
+        const htmlFilePath = path.join(siteDir, 'html', page.html_file);
+        if (!fs.existsSync(htmlFilePath)) continue;
+
+        let html = fs.readFileSync(htmlFilePath, 'utf8');
+        
+        // Inject current content từ DB
+        const pageFields = fieldsByPage[page.id] || {};
+        html = injectContent(html, pageFields);
+
+        // Inject I18n Translations
+        if (!isSource) {
+           html = await buildTranslatedHtml(html, site.id, page.id, lang.lang_code);
+        }
+
+        const $ = cheerio.load(html, { decodeEntities: false });
+
+        // EXTRACT LAYOUT (PHP Only)
+        if (mode === 'php') {
+          const headerEl = $('header').length ? $('header') : ($('nav').length ? $('nav') : null);
+          if (headerEl) {
+             if (page.is_home && isSource) _extractedHeader = headerEl.prop('outerHTML');
+             headerEl.replaceWith(`<?php require_once "${isSource ? '' : '../'}header.php"; ?>`);
           }
-          if (!relPath.startsWith('/')) relPath = '/' + relPath;
-           
-          // Strip queries/hashes
-          relPath = relPath.split('?')[0].split('#')[0];
 
-          if (relPath === '/' || relPath === '') {
-             $(el).attr('href', 'index.html');
-          } else {
-             const fixedPath = relPath.replace(/^\//, '').replace(/\//g, '_').replace(/[^a-zA-Z0-9_.-]/g, '') + '.html';
-             $(el).attr('href', fixedPath);
+          const footerEl = $('footer').length ? $('footer') : null;
+          if (footerEl) {
+             if (page.is_home && isSource) _extractedFooter = footerEl.prop('outerHTML');
+             footerEl.replaceWith(`<?php require_once "${isSource ? '' : '../'}footer.php"; ?>`);
           }
         }
-      });
 
-      // 2. Rewrite CSS paths
-      $('link[rel="stylesheet"]').each((i, el) => {
-         let href = $(el).attr('href') || '';
-         if (href) {
-           const filename = href.split('/').pop().split('?')[0];
-           $(el).attr('href', 'assets/css/' + filename);
-         }
-      });
+        // Fix internal links and asset paths for static deployment
+        $('a[href]').each((i, el) => {
+          let href = $(el).attr('href') || '';
+          
+          // Xử lý Language Switcher Sync
+          if ($(el).hasClass('lang-switch') && $(el).attr('data-lang')) {
+             const targetLang = $(el).attr('data-lang');
+             const isTargetSource = sourceLang.lang_code === targetLang;
+             
+             let targetRelPath = page.path.replace(/^\//, '').replace(/\//g, '_');
+             if (page.is_home) targetRelPath = `index${mode === 'php' ? '.php' : '.html'}`;
+             else {
+                 targetRelPath = targetRelPath.replace(/\.(php|html|htm)$/i, '') + (mode === 'php' ? '.php' : '.html');
+             }
+             
+             const targetHref = `${isTargetSource ? '' : (targetLang + '/')}${targetRelPath}`;
+             $(el).attr('href', mode === 'php' ? `<?= BASE_URL ?>${targetHref}` : `${isSource ? '' : '../'}${targetHref}`);
+             return; 
+          }
 
-      // 3. Rewrite JS paths
-      $('script[src]').each((i, el) => {
-         let src = $(el).attr('src') || '';
-         if (src) {
-           const filename = src.split('/').pop().split('?')[0];
-           $(el).attr('src', 'assets/js/' + filename);
-         }
-      });
+          // Bắt link local
+          if (href.includes('/api/sites/') || href.startsWith(site.original_url) || href.startsWith('/')) {
+             let relPath = href.replace(site.original_url, '');
+             if (relPath.includes('/serve/')) {
+                 relPath = relPath.split('/serve')[1] || '/';
+             }
+             if (!relPath.startsWith('/')) relPath = '/' + relPath;
+             relPath = relPath.split('?')[0].split('#')[0];
 
-      // 4. Rewrite Images 
-      $('img[src]').each((i, el) => {
-         let src = $(el).attr('src') || '';
-         if (src && !src.startsWith('data:')) {
-           const filename = src.split('/').pop().split('?')[0];
+             if (relPath === '/' || relPath === '') {
+                 const ext = mode === 'php' ? '.php' : '.html';
+                 $(el).attr('href', mode === 'php' ? `<?= BASE_URL ?>${langPrefix}index${ext}` : `${isSource ? '' : '../'}${langPrefix}index${ext}`);
+             } else {
+                 const cleanPath = relPath.replace(/^\//, '').replace(/\//g, '_');
+                 const ext = mode === 'php' ? '.php' : '.html';
+                 const fixedPath = cleanPath.replace(/\.(php|html|htm)$/i, '') + ext;
+                 
+                 $(el).attr('href', mode === 'php' ? `<?= BASE_URL ?>${langPrefix}${fixedPath}` : `${isSource ? '' : '../'}${langPrefix}${fixedPath}`);
+             }
+          }
+        });
+
+        $('link[rel="stylesheet"]').each((i, el) => {
+           let href = $(el).attr('href') || '';
+           if (href) {
+             const filename = href.split('/').pop().split('?')[0];
+             $(el).attr('href', mode === 'php' ? `<?= BASE_URL ?>assets/css/${filename}` : `${isSource ? '' : '../'}assets/css/${filename}`);
+           }
+        });
+
+        $('script[src]').each((i, el) => {
+           let src = $(el).attr('src') || '';
+           if (src) {
+             const filename = src.split('/').pop().split('?')[0];
+             $(el).attr('src', mode === 'php' ? `<?= BASE_URL ?>assets/js/${filename}` : `${isSource ? '' : '../'}assets/js/${filename}`);
+           }
+        });
+
+
+        // Media Helper
+        const getLocalMediaUrl = (urlStr) => {
+           if (!urlStr || urlStr.startsWith('data:')) return urlStr;
+           const filename = urlStr.split('/').pop().split('?')[0];
            
-           // Look for standard mappings from DB
            const matchedMedia = mediaItems.find(m => m.original_name === filename || m.fixed_name === filename);
            if (matchedMedia && matchedMedia.file_path) {
-             const ext = filename.split('.').pop();
-             const cleanPath = matchedMedia.file_path.replace(/\\/g, '/'); // ensure standard slash
-             // media.file_path format: images/global/abc.jpg or images/index/xyz.png
-             $(el).attr('src', cleanPath);
-           } else {
-             // Fallback
-             const fixedName = filename.replace(/[^a-zA-Z0-9._-]/g, '_');
-             $(el).attr('src', 'images/global/' + fixedName); // safe fallback assuming global if not found
+             const cleanPath = matchedMedia.file_path.replace(/\\/g, '/'); 
+             let relImagePath = cleanPath;
+             if (cleanPath.includes('/images/')) relImagePath = 'images/' + cleanPath.split('/images/')[1];
+             else if (cleanPath.includes('/assets/')) relImagePath = 'assets/' + cleanPath.split('/assets/')[1];
+             return mode === 'php' ? `<?= BASE_URL ?>${relImagePath}` : `${isSource ? '' : '../'}${relImagePath}`;
            }
-         }
-      });
+           
+           // Fallback global media if not found (likely video/audio placed manually or missed)
+           const fixedName = filename.replace(/[^a-zA-Z0-9._-]/g, '_');
+           return mode === 'php' ? `<?= BASE_URL ?>images/global/${fixedName}` : `${isSource ? '' : '../'}images/global/${fixedName}`; 
+        };
 
-      // Xác định output filename trong ZIP
-      const outputName = page.is_home ? 'index.html' : (page.path.replace(/^\//, '').replace(/\//g, '_') + '.html');
-      archive.append($.html(), { name: outputName });
+        // Rewrite Images and Srcset
+        $('img, source[srcset]').each((i, el) => {
+           let src = $(el).attr('src');
+           if (src) $(el).attr('src', getLocalMediaUrl(src));
+           
+           let srcset = $(el).attr('srcset');
+           if (srcset) {
+              const newSrcset = srcset.split(',').map(part => {
+                 const [pUrl, pSize] = part.trim().split(/\s+/);
+                 if (!pUrl) return part;
+                 return `${getLocalMediaUrl(pUrl)} ${pSize || ''}`.trim();
+              }).join(', ');
+              $(el).attr('srcset', newSrcset);
+           }
+        });
+
+        
+        // --- FINAL BOSS REWRITES ---
+        // 1. Inline Style Background Images
+        $('*[style]').each((i, el) => {
+           let inlineStyle = $(el).attr('style') || '';
+           const match = inlineStyle.match(/url\(['"]?([^'"()]+)['"]?\)/i);
+           if (match && match[1] && !match[1].startsWith('data:')) {
+               const newUrl = getLocalMediaUrl(match[1]);
+               const newStyle = inlineStyle.replace(match[0], `url('${newUrl}')`);
+               $(el).attr('style', newStyle);
+           }
+        });
+
+        // 2. Open Graph Meta Tags & Favicons
+        $('meta[property="og:image"], meta[name="twitter:image"], meta[itemprop="image"]').each((i, el) => {
+            let content = $(el).attr('content');
+            if (content && !content.startsWith('data:')) {
+                $(el).attr('content', getLocalMediaUrl(content));
+            }
+        });
+        
+        $('link[rel="icon"], link[rel="apple-touch-icon"], link[rel="shortcut icon"]').each((i, el) => {
+            let href = $(el).attr('href');
+            if (href && !href.startsWith('data:')) {
+                $(el).attr('href', getLocalMediaUrl(href));
+            }
+        });
+
+        // Rewrite HTML5 Video and Audio
+        $('video, audio, source[src]').each((i, el) => {
+           let src = $(el).attr('src');
+           if (src && !src.startsWith('data:')) {
+               const filename = src.split('/').pop().split('?')[0];
+               // Video audio assets mapped to assets/media
+               $(el).attr('src', mode === 'php' ? `<?= BASE_URL ?>assets/media/${filename}` : `${isSource ? '' : '../'}assets/media/${filename}`);
+           }
+        });
+
+        // Xác định output filename theo Folder
+        let outputName;
+        if (page.is_home) {
+           const ext = mode === 'php' ? '.php' : '.html';
+           outputName = `${langPrefix}index${ext}`;
+        } else {
+           const cleanPath = page.path.replace(/^\//, '').replace(/\//g, '_');
+           const ext = mode === 'php' ? '.php' : '.html';
+           outputName = `${langPrefix}${cleanPath.replace(/\.(php|html|htm)$/i, '')}${ext}`;
+        }
+        
+        // Inject Config
+        let finalHtml = $.html();
+        if (mode === 'php') {
+           finalHtml = `<?php require_once '${isSource ? '' : '../'}export_config.php'; ?>\n` + finalHtml;
+        }
+
+        archive.append(finalHtml, { name: outputName });
+      }
+    }
+
+    // Add layout components & .htaccess
+    if (mode === 'php') {
+      if (_extractedHeader) archive.append(_extractedHeader, { name: 'header.php' });
+      if (_extractedFooter) archive.append(_extractedFooter, { name: 'footer.php' });
+      
+      const htaccess = `RewriteEngine On\nRewriteCond %{REQUEST_FILENAME} !-f\nRewriteCond %{REQUEST_FILENAME} !-d\nRewriteRule ^([^\\.]+)$ $1.php [NC,L]\nRewriteRule ^(.*)\\.html$ $1.php [NC,L]`;
+      archive.append(htaccess, { name: '.htaccess' });
     }
 
     // Add CSS assets
+    const cssAssetsDir = path.join(siteDir, 'assets', 'css_assets');
+    if (fs.existsSync(cssAssetsDir)) archive.directory(cssAssetsDir, 'assets/css_assets');
+
     const cssDir = path.join(siteDir, 'assets', 'css');
     if (fs.existsSync(cssDir)) {
       archive.directory(cssDir, 'assets/css');

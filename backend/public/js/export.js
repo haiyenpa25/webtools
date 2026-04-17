@@ -88,6 +88,25 @@ const Export = {
         </div>
       </div>
 
+      <!-- Settings Panel -->
+      <div class="form-card" style="margin-bottom:24px">
+        <h3 style="font-size:14px;font-weight:600;color:var(--text-main);margin-bottom:16px">⚙️ Cấu Hình Xuất (Export Settings)</h3>
+        <div style="display:grid;gap:12px;text-align:left;">
+          <div>
+            <label style="display:block;margin-bottom:4px;font-size:12px;color:var(--text-muted)">Chế Độ Dựng (Export Mode)</label>
+            <select id="exportMode" class="form-input" style="width:100%;padding:10px;border-radius:6px;border:1px solid rgba(255,255,255,0.1);background:var(--bg-secondary);color:#fff">
+              <option value="php">PHP Dynamic (Khuyên dùng cho XAMPP / CPANEL)</option>
+              <option value="html">Static HTML (Thuần tĩnh cho Netlify / Vercel)</option>
+            </select>
+          </div>
+          <div>
+            <label style="display:block;margin-bottom:4px;font-size:12px;color:var(--text-muted)">Base URL Tương Đối (Dành cho PHP)</label>
+            <input type="text" id="exportBaseUrl" class="form-input" style="width:100%;padding:10px;border-radius:6px;border:1px solid rgba(255,255,255,0.1);background:var(--bg-secondary);color:#fff" value="/${data.site.slug}/">
+            <small style="font-size:11px;color:#999;display:block;margin-top:6px">Thư mục trên localhost. VD: /ten-du-an/</small>
+          </div>
+        </div>
+      </div>
+
       <!-- Export Button Area -->
       <div class="form-card" style="text-align:center;padding:32px">
         <div style="font-size:48px;margin-bottom:16px">📦</div>
@@ -133,10 +152,15 @@ const Export = {
       btn.innerHTML = '<div class="spinner" style="width:18px;height:18px;border-width:2px"></div> Đang tạo ZIP...';
     }
 
+    const modeObj = document.getElementById('exportMode');
+    const baseUrlObj = document.getElementById('exportBaseUrl');
+    const modeStr = modeObj ? modeObj.value : 'php';
+    const baseUrlStr = baseUrlObj ? encodeURIComponent(baseUrlObj.value) : encodeURIComponent(`/${currentSiteId}/`);
+
     try {
       // Tạo link download
       const link = document.createElement('a');
-      link.href = `${API}/export/${currentSiteId}`;
+      link.href = `${API}/export/${currentSiteId}?mode=${modeStr}&base_url=${baseUrlStr}`;
       link.download = `website-export-${Date.now()}.zip`;
       document.body.appendChild(link);
       link.click();

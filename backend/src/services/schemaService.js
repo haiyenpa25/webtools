@@ -20,9 +20,9 @@ function detectEditableZones(html, pageId, siteId) {
       const el = $(element);
       const textContent = el.text().trim();
 
-      // Bỏ qua nếu quá ngắn, rỗng, hoặc chứa thẻ con phức tạp
-      if (!textContent || textContent.length < 3) return;
-      if (el.children('div, p, section, article').length > 0) return;
+      // Bỏ qua nếu quá ngắn, rỗng, hoặc chứa thẻ con phức tạp (ví dụ li chứa ul menu con)
+      if (!textContent || textContent.length < 2) return;
+      if (el.children('div, p, section, article, ul, ol, nav, menu, table').length > 0) return;
 
       // Tạo selector duy nhất
       const className = (el.attr('class') || '').split(' ')[0].replace(/[^a-zA-Z0-9_-]/g, '') || '';
@@ -34,7 +34,7 @@ function detectEditableZones(html, pageId, siteId) {
       // Kiểm tra xem có HTML con không
       const innerHtml = el.html() || '';
       const hasChildTags = /<[a-z]/i.test(innerHtml);
-      const fieldType = hasChildTags && tag !== 'li' ? 'html' : 'text';
+      const fieldType = hasChildTags ? 'html' : 'text';
 
       // Gắn data attributes để visual editor nhận diện
       el.attr('data-cms-editable', 'true');
@@ -65,17 +65,22 @@ function detectEditableZones(html, pageId, siteId) {
       const className = (el.attr('class') || '').split(' ')[0].replace(/[^a-zA-Z0-9_-]/g, '') || '';
       const fieldId = `${tag}_${className || 'link'}_${pageId}_${counter++}`;
 
+      // Giống với thẻ text: Kiểm tra HTML con để tránh vỡ menu khi replace raw text
+      const innerHtml = el.html() || '';
+      const hasChildTags = /<[a-z]/i.test(innerHtml);
+      const fieldType = hasChildTags ? 'html' : 'text';
+
       el.attr('data-cms-editable', 'true');
       el.attr('data-cms-field-id', fieldId);
-      el.attr('data-cms-type', 'text');
+      el.attr('data-cms-type', fieldType);
 
       fields.push({
         field_id: fieldId,
-        field_type: 'text',
+        field_type: fieldType,
         tag,
         selector: tag + (className ? `.${className}` : ''),
-        original_value: textContent,
-        current_value: textContent,
+        original_value: fieldType === 'html' ? innerHtml : textContent,
+        current_value: fieldType === 'html' ? innerHtml : textContent,
         site_id: siteId,
         page_id: pageId
       });

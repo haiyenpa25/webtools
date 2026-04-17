@@ -150,7 +150,7 @@ async function saveTranslation(siteId, fieldId, langCode, translatedValue, pageI
 }
 
 /**
- * Dịch một đoạn text qua MyMemory API (miễn phí, không cần API key)
+ * Dịch một đoạn text qua Google Translate API (miễn phí, không yêu cầu API key)
  */
 async function translateText(text, fromLang, toLang) {
   if (!text || !text.trim() || text.trim().length < 2) return text;
@@ -159,26 +159,30 @@ async function translateText(text, fromLang, toLang) {
   // Bỏ qua text thuần số / ký tự đặc biệt
   if (/^[\d\s\W]+$/.test(text)) return text;
 
-  // Giới hạn độ dài (MyMemory max 500 chars)
-  const chunk = text.substring(0, 499);
-
+  const chunk = text.substring(0, 4000); // Google supports quite long lengths
+  
   try {
-    const response = await axios.get('https://api.mymemory.translated.net/get', {
+    const response = await axios.get(`https://translate.googleapis.com/translate_a/single`, {
       params: {
-        q: chunk,
-        langpair: `${fromLang}|${toLang}`,
-        de: 'webtools@cms.local' // optional email để tráng rate limit
-      },
-      timeout: 12000
+        client: 'gtx',
+        sl: fromLang,
+        tl: toLang,
+        dt: 't',
+        q: chunk
+      }
     });
 
-    const data = response.data;
-    if (data.responseStatus === 200 && data.responseData?.translatedText) {
-      return data.responseData.translatedText;
+    if (response.data && response.data[0]) {
+      // Google trả về array các câu dịch, gộp lại
+      return response.data[0].map(x => x[0]).join('');
     }
-    return text; // fallback: trả về text gốc nếu lỗi API
+    return text;
   } catch (err) {
-    console.warn(`⚠️ Translate failed (${fromLang}→${toLang}): ${err.message}`);
+    if (err.response && err.response.status === 429) {
+      console.warn(`⏳ Rate limit from Google API (429). Retrying or skipping.`);
+    } else {
+      console.warn(`❌ Translate failed (${fromLang}→${toLang}): ${err.message}`);
+    }
     return text;
   }
 }
@@ -200,8 +204,8 @@ async function autoTranslateSite(siteId, fromLang, toLang, onProgress) {
     const source = field.current_value?.trim() || '';
 
     // Bỏ qua HTML phức tạp (chứa nhiều tags) — chỉ dịch text đơn giản
-    const isComplexHtml = field.field_type === 'html' && (source.match(/<[^>]+>/g) || []).length > 6;
-    if (isComplexHtml || !source || source.length < 3) {
+    const isComplexHtml = field.field_type === 'html' && (source.match(/<[^>]+>/g) || []).length > 15;
+    if (isComplexHtml || !source || source.length < 2) {
       skipCount++;
       done++;
       continue;
@@ -232,8 +236,8 @@ async function autoTranslateSite(siteId, fromLang, toLang, onProgress) {
     const progress = Math.round((done / total) * 100);
     onProgress?.({ progress, total, done, successCount, skipCount, message: `Đang dịch... (${done}/${total})` });
 
-    // Delay nhỏ để tránh rate limit
-    await new Promise(r => setTimeout(r, 120));
+    // Delay nhỏ để tránh spam
+    await new Promise(r => setTimeout(r, 50));
   }
 
   onProgress?.({ progress: 100, total, done, successCount, skipCount, message: `Hoàn tất! Đã dịch ${successCount} trường.` });
