@@ -35,8 +35,13 @@ async function crawlSite(siteUrl, siteSlug, uploadDir, onProgress, options = {})
   });
 
   const visited = new Set();
-  const queued = new Set([siteUrl]);
-  const queue = [{ url: siteUrl, priority: 1 }];
+  
+  const customQueue = options.customQueue || [];
+  const queue = customQueue.length > 0
+    ? customQueue.map(url => ({ url, priority: 1 }))
+    : [{ url: siteUrl, priority: 1 }];
+    
+  const queued = new Set(queue.map(q => q.url));
   const pages = [];
   const assetMap = { css: [], js: [], images: {}, media: [] };
   
@@ -148,19 +153,21 @@ async function crawlSite(siteUrl, siteSlug, uploadDir, onProgress, options = {})
         return results;
       }, baseUrl.origin);
 
-      // Thêm links mới vào queue
-      links.forEach(({ url: cleanLink, priority }) => {
-        // Kiểm tra xem link có nằm trong danh sách exclude bỏ qua không
-        const isExcluded = excludePaths.some(ex => cleanLink.includes(ex));
+      // Thêm links mới vào queue NẾU không xài customQueue
+      if (!customQueue || customQueue.length === 0) {
+        links.forEach(({ url: cleanLink, priority }) => {
+          // Kiểm tra xem link có nằm trong danh sách exclude bỏ qua không
+          const isExcluded = excludePaths.some(ex => cleanLink.includes(ex));
 
-        if (!isExcluded && !visited.has(cleanLink) && !queued.has(cleanLink)) {
-          queued.add(cleanLink);
-          queue.push({ url: cleanLink, priority });
-          totalPages++;
-        }
-      });
-      // Ưu tiên Sitemap: link menu sẽ được crawl trước để tránh miss trang nếu vuợt quá giới hạn
-      queue.sort((a, b) => a.priority - b.priority);
+          if (!isExcluded && !visited.has(cleanLink) && !queued.has(cleanLink)) {
+            queued.add(cleanLink);
+            queue.push({ url: cleanLink, priority });
+            totalPages++;
+          }
+        });
+        // Ưu tiên Sitemap: link menu sẽ được crawl trước để tránh miss trang nếu vuợt quá giới hạn
+        queue.sort((a, b) => a.priority - b.priority);
+      }
 
       // Thu thập CSS, JS, Images, và Media assets
       const assets = await page.evaluate(() => {

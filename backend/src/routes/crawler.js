@@ -13,10 +13,82 @@ const fs = require('fs');
 const crawlJobs = {};
 
 /**
+ * POST /api/crawl/scan — X-Ray Scan Links
+ * Quét DOM nhanh để lấy danh sách liên kết cho UI Picker
+ */
+router.post('/scan', async (req, res) => {
+  const { url } = req.body;
+  if (!url) return res.status(400).json({ error: 'URL is required' });
+
+  try {
+    const { chromium } = require('playwright');
+    const browser = await chromium.launch({ headless: true });
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    
+    // Abort assets for SPEED
+    await page.route('**/*', route => {
+      const type = route.request().resourceType();
+      if (['image', 'media', 'font', 'stylesheet'].includes(type)) route.abort();
+      else route.continue();
+    });
+
+    await page.goto(url, { waitUntil: 'load', timeout: 30000 });
+    
+    // Extract Links (Grouped)
+    const links = await page.evaluate((origin) => {
+      const results = [];
+      const seen = new Set();
+      document.querySelectorAll('a[href]').forEach(a => {
+        const href = a.href;
+        if (!href.startsWith(origin) || href.includes('#')) return;
+        
+        let pathName;
+        try {
+          const u = new URL(href);
+          pathName = u.pathname;
+        } catch(e) { return; }
+        
+        if (seen.has(pathName)) return;
+        seen.add(pathName);
+        
+        let label = a.innerText.trim();
+        if (!label && a.querySelector('img')) label = 'Image Link';
+        if (!label) label = pathName;
+        
+        const isMenu = !!a.closest('nav, header, .menu, .navbar');
+        
+        results.push({
+          path: pathName,
+          label: label,
+          group: isMenu ? 'menu' : 'body'
+        });
+      });
+      return results;
+    }, new URL(url).origin);
+    
+    await browser.close();
+    
+    // Sort array so Menu comes first
+    links.sort((a, b) => {
+       if (a.path === '/') return -1;
+       if (b.path === '/') return 1;
+       if (a.group === 'menu' && b.group !== 'menu') return -1;
+       if (a.group !== 'menu' && b.group === 'menu') return 1;
+       return 0;
+    });
+    
+    res.json({ links });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
  * POST /api/crawl — Bắt đầu crawl một website mới
  */
 router.post('/', async (req, res) => {
-  const { url, name, maxPages = 50, waitTime = 1000, excludePaths = [] } = req.body;
+  const { url, name, maxPages = 50, waitTime = 1000, excludePaths = [], customQueue = [] } = req.body;
 
   if (!url) return res.status(400).json({ error: 'URL is required' });
 
@@ -39,7 +111,7 @@ router.post('/', async (req, res) => {
 
   res.json({ siteId, slug, jobId, message: 'Crawl job started' });
 
-  runCrawlJob(siteId, url, slug, uploadDir, jobId, { maxPages: parseInt(maxPages), waitTime: parseInt(waitTime), excludePaths }).catch(err => {
+  runCrawlJob(siteId, url, slug, uploadDir, jobId, { maxPages: parseInt(maxPages), waitTime: parseInt(waitTime), excludePaths, customQueue }).catch(err => {
     console.error('Crawl job failed:', err);
     crawlJobs[jobId] = { progress: 0, status: 'error', message: err.message };
     db.execute('UPDATE sites SET status = ?, error_message = ? WHERE id = ?', ['error', err.message, siteId]).catch(() => {});
@@ -59,7 +131,7 @@ router.get('/status/:jobId', (req, res) => {
  * Logic crawl chính (chạy async)
  */
 async function runCrawlJob(siteId, url, slug, uploadDir, jobId, options = {}) {
-  const { maxPages = 50, waitTime = 1000, excludePaths = [] } = options;
+  const { maxPages = 50, waitTime = 1000, excludePaths = [], customQueue = [] } = options;
   try {
     await db.execute('UPDATE sites SET status = ? WHERE id = ?', ['crawling', siteId]);
 
@@ -71,7 +143,7 @@ async function runCrawlJob(siteId, url, slug, uploadDir, jobId, options = {}) {
     onProgress({ progress: 5, status: 'crawling', message: `Đang khởi động crawler (tối đa ${maxPages} trang)...` });
 
     // 1. Crawl website với settings
-    const { pages, mediaItems, siteDir } = await crawlSite(url, slug, uploadDir, onProgress, { maxPages, waitTime, excludePaths });
+    const { pages, mediaItems, siteDir } = await crawlSite(url, slug, uploadDir, onProgress, { maxPages, waitTime, excludePaths, customQueue });
 
     onProgress({ progress: 88, status: 'processing', message: 'Đang xử lý và lưu dữ liệu...' });
 
