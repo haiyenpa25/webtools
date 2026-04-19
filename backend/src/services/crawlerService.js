@@ -298,31 +298,40 @@ async function crawlSite(siteUrl, siteSlug, uploadDir, onProgress, options = {})
 
   const allUniqueImages = Object.keys(imageCounts);
   
-  for (const imgUrl of allUniqueImages.slice(0, 100)) {
-    const count = imageCounts[imgUrl];
-    let targetFolder = 'global';
+  // T?i uu t?i ?nh song song v?i Concurrency = 6
+  const concurrencyLimit = 6;
+  const targetImages = allUniqueImages.slice(0, 500); 
+
+  for (let i = 0; i < targetImages.length; i += concurrencyLimit) {
+    const chunk = targetImages.slice(i, i + concurrencyLimit);
     
-    if (count === 1) {
-      const findingPagePath = Object.keys(assetMap.images).find(p => assetMap.images[p].includes(imgUrl));
-      if (findingPagePath) {
-        targetFolder = findingPagePath === '/' ? 'index' : findingPagePath.replace(/^\//, '').replace(/\//g, '_');
+    const chunkPromises = chunk.map(async (imgUrl) => {
+      const count = imageCounts[imgUrl];
+      let targetFolder = 'global';
+      
+      if (count === 1) {
+        const findingPagePath = Object.keys(assetMap.images).find(p => assetMap.images[p].includes(imgUrl));
+        if (findingPagePath) {
+          targetFolder = findingPagePath === '/' ? 'index' : findingPagePath.replace(/^\//, '').replace(/\//g, '_');
+        }
       }
-    }
 
-    const filename = imgUrl.split('/').pop().split('?')[0];
-    const fixedName = filename.replace(/[^a-zA-Z0-9._-]/g, '_') || `image_${Date.now()}.jpg`;
+      const filename = imgUrl.split('/').pop().split('?')[0];
+      const fixedName = filename.replace(/[^a-zA-Z0-9._-]/g, '_') || \image_ + "" + .jpg\;
+      
+      const result = await downloadAndOptimizeImage(imgUrl, fixedName, siteDir, targetFolder);
+      if (result) {
+        return { fixedName, originalUrl: imgUrl, folder: targetFolder, ...result };
+      }
+      return null;
+    });
+
+    const results = await Promise.all(chunkPromises);
+    results.filter(r => r !== null).forEach(r => mediaItems.push(r));
     
-    const result = await downloadAndOptimizeImage(imgUrl, fixedName, siteDir, targetFolder);
-    if (result) {
-      mediaItems.push({
-        fixedName,
-        originalUrl: imgUrl,
-        folder: targetFolder,
-        ...result // includes path like: images/global/abc.jpg
-      });
-    }
+    const currentProgress = Math.min(85 + Math.round(((i + chunk.length) / targetImages.length) * 10), 98);
+    onProgress?.({ status: 'images', progress: currentProgress, message: \�ang t?i ?nh: \ + Math.min(i + chunk.length, targetImages.length) + \ / \ + targetImages.length + \ ...\ });
   }
-
   onProgress?.({ status: 'done', progress: 100, message: 'Hoàn tất!' });
 
   return { pages, mediaItems, siteDir };
@@ -425,3 +434,5 @@ function pathToFilename(pagePath) {
 }
 
 module.exports = { crawlSite };
+
+

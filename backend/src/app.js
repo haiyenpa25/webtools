@@ -47,6 +47,7 @@ app.use('/api/seo', require('./routes/seo'));
 app.use('/api/globals', require('./routes/globals'));
 app.use('/api/history', require('./routes/history'));
 app.use('/api/export', require('./routes/export'));
+app.use('/api/public/v1', require('./routes/api'));
 app.use('/api/search', require('./routes/search'));
 app.use('/api/i18n', require('./routes/i18n'));
 
@@ -119,3 +120,4 @@ server.listen(PORT, () => {
 });
 
 module.exports = { app, io };
+
