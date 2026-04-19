@@ -295,4 +295,34 @@ router.put('/:id', async (req, res) => {
   }
 });
 
+
+/**
+ * PUT /api/sites/:siteId/pages/:pageId/html — Save raw HTML structural changes
+ */
+router.put('/:siteId/pages/:pageId/html', async (req, res) => {
+  try {
+    const { siteId, pageId } = req.params;
+    const { html } = req.body;
+    
+    if (!html) return res.status(400).json({ error: 'HTML content missing' });
+
+    const [sites] = await db.execute('SELECT slug FROM sites WHERE id = ?', [siteId]);
+    if (!sites.length) return res.status(404).json({ error: 'Site not found' });
+
+    const [pages] = await db.execute('SELECT html_file FROM pages WHERE id = ? AND site_id = ?', [pageId, siteId]);
+    if (!pages.length) return res.status(404).json({ error: 'Page not found' });
+
+    const htmlPath = path.join(__dirname, '../../uploads/sites', sites[0].slug, 'html', pages[0].html_file);
+    if (!fs.existsSync(htmlPath)) return res.status(404).json({ error: 'Physical HTML file not found' });
+
+    // Note: This saves the modified HTML back to the static file.
+    // The frontend should ONLY send back the inner contents of <body> WITHOUT the injected CMS scripts.
+    fs.writeFileSync(htmlPath, html, 'utf8');
+
+    res.json({ success: true, message: 'HTML updated successfully.' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 module.exports = router;
+

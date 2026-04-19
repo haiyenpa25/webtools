@@ -1,0 +1,8 @@
+.cms-block-active {
+  outline: 3px dashed #6c63ff !important;
+  outline-offset: 4px;
+  background: rgba(108, 99, 255, 0.05) !important;
+  border-radius: 4px;
+  position: relative;
+  z-index: 99999;
+}
