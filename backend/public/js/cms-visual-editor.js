@@ -93,7 +93,7 @@
     const fieldType = el.getAttribute('data-cms-type');
 
     if (fieldType === 'image') {
-      if (window.parent && window.parent.Media) window.parent.Media.openUpload(el.getAttribute('src'), fieldId);
+      if (window.parent && window.parent.Media) { const w = el.naturalWidth || el.clientWidth; const h = el.naturalHeight || el.clientHeight; window.parent.Media.openUpload(el.getAttribute('src'), fieldId, null, w, h); }
       return;
     }
 
@@ -256,3 +256,4 @@
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 })();
+

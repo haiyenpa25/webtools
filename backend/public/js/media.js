@@ -51,7 +51,9 @@ const Media = {
       </div>`;
   },
 
-  openUpload(currentUrl, fixedName, mediaId) {
+  openUpload(currentUrl, fixedName, mediaId, width=null, height=null) {
+      const sizeLabel = document.getElementById('uploadSuggestedSize');
+      if (sizeLabel) { sizeLabel.textContent = (width && height) ? (width + 'x' + height + ' px') : 'Auto (Tu? Ý)'; }
     this.uploadContext = { fixedName, mediaId };
     document.getElementById('uploadCurrentImg').src = currentUrl || '';
     document.getElementById('uploadFixedName').textContent = fixedName;
@@ -94,3 +96,4 @@ const Media = {
     }
   }
 };
+
