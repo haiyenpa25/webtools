@@ -34,8 +34,19 @@ const Collections = {
     `).join('');
   },
 
-  showCreateForm() {
+  async showCreateForm() {
      document.getElementById('colCreateModal').style.display = 'flex';
+     // Load trang mau de assign template_page_id
+     try {
+        const resp = await fetch(`${API}/sites/${currentSiteId}/pages`);
+        const pages = await resp.json();
+        
+        const sel = document.getElementById('colTemplatePage');
+        if (sel) {
+           sel.innerHTML = '<option value="">-- Kh�ng c?n xu?t Trang Chi Ti?t --</option>' + 
+                         pages.map(p => `<option value="${p.id}">${p.is_home ? 'Trang Ch?' : p.path} (${p.html_file})</option>`).join('');
+        }
+     } catch(e) {}
   },
   
   closeCreateForm() {
@@ -45,6 +56,7 @@ const Collections = {
   async createCollection() {
      const name = document.getElementById('colName').value;
      const slug = document.getElementById('colSlug').value;
+     const templateId = document.getElementById('colTemplatePage') ? document.getElementById('colTemplatePage').value : null;
      if(!name || !slug) return alert('Vui l�ng di?n d? t�n v� slug!');
      
      // Th�m 2 field m?c d?nh: T�m t?t, N?i dung
@@ -58,7 +70,7 @@ const Collections = {
        await fetch(`${API}/collections/${currentSiteId}`, {
          method: 'POST',
          headers: {'Content-Type':'application/json'},
-         body: JSON.stringify({ name, slug, fields })
+         body: JSON.stringify({ name, slug, template_page_id: templateId, fields })
        });
        Toast.success('�� t?o Kho d? li?u!');
        this.closeCreateForm();

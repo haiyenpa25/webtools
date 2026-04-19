@@ -36,12 +36,12 @@ router.post('/:siteId/config', (req, res) => {
 router.post('/:siteId/execute', async (req, res) => {
   const configs = getConfigs();
   const config = configs[req.params.siteId];
-  if (!config) return res.status(400).json({ error: 'Chua c?u hình tài kho?n FTP/Deploy' });
+  if (!config) return res.status(400).json({ error: 'Chua c?u hï¿½nh tï¿½i kho?n FTP/Deploy' });
 
   // 1. Prepare export folder (We assume the user must have clicked Export first, so export folder exists)
   const exportDir = path.join(__dirname, '../../exports', req.params.siteId);
   if (!fs.existsSync(exportDir)) {
-    return res.status(400).json({ error: 'Chua tìm th?y b?n Build! Hãy vào tab Xu?t File (Export) d? t?o b?n Build tru?c.' });
+    return res.status(400).json({ error: 'Chua tï¿½m th?y b?n Build! Hï¿½y vï¿½o tab Xu?t File (Export) d? t?o b?n Build tru?c.' });
   }
 
   if (config.type === 'ftp') {
@@ -58,14 +58,14 @@ router.post('/:siteId/execute', async (req, res) => {
       await client.ensureDir(config.remoteDir);
       await client.clearWorkingDir();
       await client.uploadFromDir(exportDir);
-      res.json({ success: true, message: 'Ðã d?y lên FTP Server thành công!' });
+      res.json({ success: true, message: 'ï¿½ï¿½ d?y lï¿½n FTP Server thï¿½nh cï¿½ng!' });
     } catch (err) {
       res.status(500).json({ error: 'L?i FTP: ' + err.message });
     } finally {
       client.close();
     }
   } else {
-    res.status(400).json({ error: 'Ch? h? tr? giao th?c FTP ? phiên b?n này' });
+    res.status(400).json({ error: 'Ch? h? tr? giao th?c FTP ? phiï¿½n b?n nï¿½y' });
   }
 });
 
