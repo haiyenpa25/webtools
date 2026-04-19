@@ -47,6 +47,7 @@ async function overwriteImage(inputBuffer, fixedName, siteDir, folderName = '') 
 
   // Giữ nguyên format, tối ưu chất lượng
   const ext = path.extname(fixedName).toLowerCase();
+  if (ext === '.webp') { processor = processor.webp({ quality: 80, effort: 6 }); }
   switch (ext) {
     case '.jpg':
     case '.jpeg':
@@ -147,3 +148,4 @@ module.exports = {
   downloadAndOptimizeImage,
   getImageMeta
 };
+

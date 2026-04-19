@@ -1,6 +1,6 @@
 /**
  * cms-visual-editor.js
- * Script du?c inject vào trang crawl khi m? ? Edit Mode
+ * Script du?c inject vï¿½o trang crawl khi m? ? Edit Mode
  */
 (function() {
   'use strict';
@@ -15,11 +15,11 @@
       <div class="cms-toolbar-left">
         <div class="cms-logo">? WebTools<span>CMS</span></div>
         <span class="cms-badge">EDIT MODE</span>
-        <span class="cms-field-info" id="cmsFieldInfo">Di chu?t vào n?i dung d? ch?nh s?a</span>
+        <span class="cms-field-info" id="cmsFieldInfo">Di chu?t vï¿½o n?i dung d? ch?nh s?a</span>
       </div>
       <div style="display:flex;gap:8px">
-        <button class="btn-cancel" style="background:var(--accent);color:white;border:none;padding:6px 12px;border-radius:4px;cursor:pointer" onclick="CmsEditor.saveHtml()">?? Luu Mã Ngu?n (HTML)</button>
-        <button class="btn-cancel" style="background:#dc3545;color:white;border:none;padding:6px 12px;border-radius:4px;cursor:pointer" onclick="window.parent.VisualEditor && window.parent.VisualEditor.close()">? Ðóng</button>
+        <button class="btn-cancel" style="background:var(--accent);color:white;border:none;padding:6px 12px;border-radius:4px;cursor:pointer" onclick="CmsEditor.saveHtml()">?? Luu Mï¿½ Ngu?n (HTML)</button>
+        <button class="btn-cancel" style="background:#dc3545;color:white;border:none;padding:6px 12px;border-radius:4px;cursor:pointer" onclick="window.parent.VisualEditor && window.parent.VisualEditor.close()">? ï¿½ï¿½ng</button>
       </div>
     `;
     document.body.insertBefore(toolbar, document.body.firstChild);
@@ -63,9 +63,9 @@
     panel.style.cssText = 'position:absolute;z-index:999999;background:#1e1e2d;border:1px solid #6c63ff;border-radius:8px;padding:8px;display:none;gap:8px;box-shadow:0 10px 25px rgba(0,0,0,0.5);align-items:center';
     panel.innerHTML = `
       <span style="color:#fff;font-size:12px;font-weight:bold;margin-right:8px" id="structTagName">BLOCK</span>
-      <button style="border:none;background:#2c2c3e;color:#fff;cursor:pointer;padding:6px 10px;border-radius:4px;font-size:12px;display:flex;align-items:center;gap:4px" onclick="CmsEditor.duplicateBlock()">?? Nhân B?n</button>
+      <button style="border:none;background:#2c2c3e;color:#fff;cursor:pointer;padding:6px 10px;border-radius:4px;font-size:12px;display:flex;align-items:center;gap:4px" onclick="CmsEditor.duplicateBlock()">?? Nhï¿½n B?n</button>
       <button style="border:none;background:#2c2c3e;color:#fff;cursor:pointer;padding:6px 10px;border-radius:4px;font-size:12px;display:flex;align-items:center;gap:4px" onclick="CmsEditor.hideBlock()">??? ?n</button>
-      <button style="border:none;background:#dc3545;color:#fff;cursor:pointer;padding:6px 10px;border-radius:4px;font-size:12px;display:flex;align-items:center;gap:4px" onclick="CmsEditor.deleteBlock()">??? Xoá</button>
+      <button style="border:none;background:#dc3545;color:#fff;cursor:pointer;padding:6px 10px;border-radius:4px;font-size:12px;display:flex;align-items:center;gap:4px" onclick="CmsEditor.deleteBlock()">??? Xoï¿½</button>
       <button style="border:none;background:transparent;color:#fff;cursor:pointer;padding:6px;font-size:14px;margin-left:4px" onclick="CmsEditor.closeStruct()">?</button>
     `;
     document.body.appendChild(panel);
@@ -133,7 +133,7 @@
       
       activeElement.classList.add('cms-saved');
       setTimeout(() => activeElement && activeElement.classList.remove('cms-saved'), 500);
-      showToast('? Ðã luu Text!');
+      showToast('? ï¿½ï¿½ luu Text!');
     } catch (err) { showToast('? L?i: ' + err.message); }
     closeEditor(false);
   }
@@ -176,22 +176,22 @@
     // Actually, keeping them is fine for structural. A new detection pass is triggered after "Save HTML".
     activeBlock.parentNode.insertBefore(clone, activeBlock.nextSibling);
 
-    showToast('?? Ðã nhân b?n (Vui lòng Luu Mã Ngu?n HTML)');
+    showToast('?? ï¿½ï¿½ nhï¿½n b?n (Vui lï¿½ng Luu Mï¿½ Ngu?n HTML)');
     closeStruct();
   }
 
   function hideBlock() {
     if (!activeBlock) return;
     activeBlock.style.display = 'none';
-    showToast('??? Ðã ?n (Luu HTML)');
+    showToast('??? ï¿½ï¿½ ?n (Luu HTML)');
     closeStruct();
   }
 
   function deleteBlock() {
     if (!activeBlock) return;
-    if (confirm('B?n có ch?c xoá ph?n t? này kh?i HTML g?c?')) {
+    if (confirm('B?n cï¿½ ch?c xoï¿½ ph?n t? nï¿½y kh?i HTML g?c?')) {
       activeBlock.remove();
-      showToast('??? Ðã xoá (Luu HTML)');
+      showToast('??? ï¿½ï¿½ xoï¿½ (Luu HTML)');
       closeStruct();
     }
   }
@@ -216,7 +216,7 @@
         body: JSON.stringify({ html: '<!DOCTYPE html><html><head>' + document.head.innerHTML + '</head><body class="' + document.body.className.replace('cms-edit-mode', '') + '">' + clone.innerHTML + '</body></html>' })
       });
       if (!resp.ok) throw new Error('Failed to save HTML');
-      showToast('? Ðã luu c?u trúc HTML thành công!');
+      showToast('? ï¿½ï¿½ luu c?u trï¿½c HTML thï¿½nh cï¿½ng!');
     } catch (err) {
       showToast('? L?i luu HTML: ' + err.message);
     }

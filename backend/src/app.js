@@ -1,5 +1,7 @@
 require('dotenv').config();
 const express = require('express');
+const cookieParser = require('cookie-parser');
+const { checkAuth } = require('./middlewares/authMiddleware');
 const cors = require('cors');
 const morgan = require('morgan');
 const fileUpload = require('express-fileupload');
@@ -21,6 +23,11 @@ app.use(fileUpload({
   limits: { fileSize: parseInt(process.env.MAX_FILE_SIZE || '20971520') },
   useTempFiles: false
 }));
+
+app.use(cookieParser());
+app.use('/api/auth', require('./routes/auth'));
+// Protect all downstream routes
+app.use(checkAuth);
 
 // === Serve CMS Dashboard (static frontend) ===
 const publicDir = path.join(__dirname, '../public');
@@ -109,6 +116,9 @@ io.on('connection', (socket) => {
 app.set('io', io);
 
 // === Start Server ===
+const { initCronJobs } = require('./services/cronService');
+initCronJobs();
+
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log('');
@@ -120,4 +130,6 @@ server.listen(PORT, () => {
 });
 
 module.exports = { app, io };
+
+
 

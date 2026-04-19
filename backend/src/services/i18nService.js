@@ -156,36 +156,41 @@ async function translateText(text, fromLang, toLang) {
   if (!text || !text.trim() || text.trim().length < 2) return text;
   if (fromLang === toLang) return text;
 
-  // Bỏ qua text thuần số / ký tự đặc biệt
+  // B? qua text thu?n s? / k� t? d?c bi?t
   if (/^[\d\s\W]+$/.test(text)) return text;
 
-  const chunk = text.substring(0, 4000); // Google supports quite long lengths
-  
-  try {
-    const response = await axios.get(`https://translate.googleapis.com/translate_a/single`, {
-      params: {
-        client: 'gtx',
-        sl: fromLang,
-        tl: toLang,
-        dt: 't',
-        q: chunk
+  // 1. TH? D�NG GEMINI AI N?U C� KEY
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (apiKey) {
+    try {
+      const prompt = Translate the following  text to . Ensure technical MEP and engineering terms are translated accurately and contextually. Return ONLY the translated text, no markdown, no conversational filler:\n\n;
+      const response = await axios.post(
+        https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=,
+        { contents: [{ parts: [{ text: prompt }] }] },
+        { headers: { 'Content-Type': 'application/json' } }
+      );
+      if (response.data?.candidates?.[0]?.content?.parts?.[0]?.text) {
+        return response.data.candidates[0].content.parts[0].text.trim();
       }
+    } catch (e) {
+      console.warn([GEMINI] D?ch th?t b?i, Fallback sang Google. L?i: );
+    }
+  }
+
+  // 2. FALLBACK SANG GOOGLE TRANSLATE MI?N PH�
+  const chunk = text.substring(0, 4000); 
+  try {
+    const response = await axios.get(https://translate.googleapis.com/translate_a/single, {
+      params: { client: 'gtx', sl: fromLang, tl: toLang, dt: 't', q: chunk }
     });
 
     if (response.data && response.data[0]) {
-      // Google trả về array các câu dịch, gộp lại
       return response.data[0].map(x => x[0]).join('');
     }
     return text;
   } catch (err) {
-    if (err.response && err.response.status === 429) {
-      console.warn(`⏳ Rate limit from Google API (429). Retrying or skipping.`);
-    } else {
-      console.warn(`❌ Translate failed (${fromLang}→${toLang}): ${err.message}`);
-    }
     return text;
-  }
-}
+  }}
 
 /**
  * Auto-translate toàn bộ fields của site sang 1 ngôn ngữ đích
@@ -327,3 +332,5 @@ module.exports = {
   buildTranslatedHtml,
   getTranslationStats
 };
+
+

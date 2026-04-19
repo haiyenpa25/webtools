@@ -297,7 +297,7 @@ router.put('/:id', async (req, res) => {
 
 
 /**
- * PUT /api/sites/:siteId/pages/:pageId/html — Save raw HTML structural changes
+ * PUT /api/sites/:siteId/pages/:pageId/html ï¿½ Save raw HTML structural changes
  */
 router.put('/:siteId/pages/:pageId/html', async (req, res) => {
   try {
@@ -324,5 +324,37 @@ router.put('/:siteId/pages/:pageId/html', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+/**
+ * POST /api/sites/:siteId/pages/:pageId/ai-rewrite -> Dï¿½ng AI vi?t l?i nguyï¿½n kh?i HTML
+ */
+router.post('/:siteId/pages/:pageId/ai-rewrite', async (req, res) => {
+  try {
+    const { html } = req.body;
+    if (!html) return res.status(400).json({ error: 'Missing HTML parameter' });
+
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) return res.status(500).json({ error: 'Chua c?u hï¿½nh GEMINI_API_KEY trong .env' });
+
+    const axios = require('axios');
+    const prompt = `Rewrite the following HTML block to improve its marketing copy and SEO, while strictly preserving ALL HTML tags, attributes, and classes. Do not wrap with markdown or conversational tags:\n\n${html}`;
+    
+    const response = await axios.post(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+      { contents: [{ parts: [{ text: prompt }] }] },
+      { headers: { 'Content-Type': 'application/json' } }
+    );
+    
+    let rewrittenHtml = html;
+    if (response.data?.candidates?.[0]?.content?.parts?.[0]?.text) {
+      rewrittenHtml = response.data.candidates[0].content.parts[0].text.trim();
+    }
+    
+    res.json({ success: true, html: rewrittenHtml });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;
 
