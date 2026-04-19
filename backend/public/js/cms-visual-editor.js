@@ -396,3 +396,19 @@ box-shadow: 0 4px 6px rgba..." onchange="CmsEditor.applyCssCustom(this.value)"><
     activeBlock.style.border = '2px dashed #f59e0b';
     showToast('?? �� g�n Master ID: ' + formatted + '. Nh? B?m Luu M� Ngu?n HTML d? �p d?ng to�n h? th?ng!');
   };
+
+
+  window.CmsEditor.setBind = function() {
+    if (!activeBlock) return;
+    const name = prompt('Nh?p t�n TRU?NG D? LI?U �?NG (CMS Field Key) m� kh?i n�y s? hi?n th? (VD: tieu_de, noi_dung, don_gia):');
+    if (!name || name.trim() === '') return;
+    
+    const formatted = name.trim().replace(/[^a-zA-Z0-9_-]/g, '_').toLowerCase();
+    activeBlock.setAttribute('data-cms-bind', formatted);
+    activeBlock.style.border = '2px solid #8b5cf6';
+    activeBlock.style.position = 'relative';
+    // Add a tiny pseudo label via code or just set a title
+    activeBlock.title = "�� n?i v?i Bi?n �?ng: " + formatted;
+    
+    showToast('? �� n?i bi?n d?ng: ' + formatted + '. Nh? luu m� ngu?n.');
+  };
