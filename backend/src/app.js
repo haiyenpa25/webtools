@@ -53,6 +53,7 @@ app.use('/api/media', require('./routes/media'));
 app.use('/api/seo', require('./routes/seo'));
 app.use('/api/globals', require('./routes/globals'));
 app.use('/api/history', require('./routes/history'));
+app.use('/api/deploy', require('./routes/deploy'));
 app.use('/api/export', require('./routes/export'));
 app.use('/api/public/v1', require('./routes/api'));
 app.use('/api/search', require('./routes/search'));
