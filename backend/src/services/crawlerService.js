@@ -1,4 +1,4 @@
-﻿require('dotenv').config();
+require('dotenv').config();
 const { chromium } = require('playwright');
 const axios = require('axios');
 const cheerio = require('cheerio');
@@ -73,9 +73,11 @@ async function crawlSite(siteUrl, siteSlug, uploadDir, onProgress, options = {})
       console.log(`≡ƒôä Crawling: ${url}`);
       
       await page.goto(url, { 
-        waitUntil: 'networkidle',
-        timeout: 30000 
+        waitUntil: 'domcontentloaded',
+        timeout: 45000 
       });
+      // Wait for additional JS rendering after DOM loaded
+      try { await page.waitForLoadState('networkidle', { timeout: 8000 }); } catch(e) { /* timeout ok */ }
 
       // Chß╗¥ nß╗Öi dung load t─⌐nh c╞í bß║ún
       await page.waitForTimeout(1000);
@@ -330,7 +332,7 @@ async function crawlSite(siteUrl, siteSlug, uploadDir, onProgress, options = {})
     results.filter(r => r !== null).forEach(r => mediaItems.push(r));
     
     const currentProgress = Math.min(85 + Math.round(((i + chunk.length) / targetImages.length) * 10), 98);
-    onProgress?.({ status: 'images', progress: currentProgress, message: `${m} ${Math.min(i + chunk.length, targetImages.length)} / ${targetImages.length} ...` });
+    onProgress?.({ status: 'images', progress: currentProgress, message: `Đang tải ảnh: ${Math.min(i + chunk.length, targetImages.length)} / ${targetImages.length} ...` });
   }
   onProgress?.({ status: 'done', progress: 100, message: 'Ho├án tß║Ñt!' });
 
