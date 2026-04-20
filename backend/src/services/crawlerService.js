@@ -1,4 +1,4 @@
-require('dotenv').config();
+﻿require('dotenv').config();
 const { chromium } = require('playwright');
 const axios = require('axios');
 const cheerio = require('cheerio');
@@ -9,12 +9,12 @@ const { sanitizeContent, rewriteUrls } = require('./sanitizerService');
 const { downloadAndOptimizeImage } = require('./imageService');
 
 /**
- * Deep Crawler Service — Playwright-based
- * Phân tích DOM đệ quy, xây dựng Site Map, tải toàn bộ assets
+ * Deep Crawler Service ΓÇö Playwright-based
+ * Ph├ón t├¡ch DOM ─æß╗ç quy, x├óy dß╗▒ng Site Map, tß║úi to├án bß╗Ö assets
  */
 
 /**
- * Crawl toàn bộ website từ URL gốc
+ * Crawl to├án bß╗Ö website tß╗½ URL gß╗æc
  */
 async function crawlSite(siteUrl, siteSlug, uploadDir, onProgress, options = {}) {
   const { maxPages = 50, waitTime = 1000, excludePaths = [] } = options;
@@ -45,8 +45,8 @@ async function crawlSite(siteUrl, siteSlug, uploadDir, onProgress, options = {})
   const pages = [];
   const assetMap = { css: [], js: [], images: {}, media: [] };
   
-  console.log(`🕷️ Starting crawl: ${siteUrl} (max: ${maxPages} pages)`);
-  onProgress?.({ status: 'crawling', progress: 5, message: `Khởi động crawl (max: ${maxPages} trang)...` });
+  console.log(`≡ƒò╖∩╕Å Starting crawl: ${siteUrl} (max: ${maxPages} pages)`);
+  onProgress?.({ status: 'crawling', progress: 5, message: `Khß╗ƒi ─æß╗Öng crawl (max: ${maxPages} trang)...` });
 
   let totalPages = 1;
   let crawledPages = 0;
@@ -60,7 +60,7 @@ async function crawlSite(siteUrl, siteSlug, uploadDir, onProgress, options = {})
     try {
       const page = await context.newPage();
       
-      // Chặn các request không cần thiết để tăng tốc
+      // Chß║╖n c├íc request kh├┤ng cß║ºn thiß║┐t ─æß╗â t─âng tß╗æc
       await page.route('**/*', route => {
         const resourceType = route.request().resourceType();
         if (['font', 'media'].includes(resourceType)) {
@@ -70,18 +70,18 @@ async function crawlSite(siteUrl, siteSlug, uploadDir, onProgress, options = {})
         }
       });
 
-      console.log(`📄 Crawling: ${url}`);
+      console.log(`≡ƒôä Crawling: ${url}`);
       
       await page.goto(url, { 
         waitUntil: 'networkidle',
         timeout: 30000 
       });
 
-      // Chờ nội dung load tĩnh cơ bản
+      // Chß╗¥ nß╗Öi dung load t─⌐nh c╞í bß║ún
       await page.waitForTimeout(1000);
 
-      // --- FINAL BOSS 1: SMOOTH SCROLL (VƯỢT TRẦN LAZY-LOAD) ---
-      // Cuộn trang tự động để các thư viện JS như IntersectionObserver nạp 100% Ảnh
+      // --- FINAL BOSS 1: SMOOTH SCROLL (V╞»ß╗óT TRß║ªN LAZY-LOAD) ---
+      // Cuß╗Ön trang tß╗▒ ─æß╗Öng ─æß╗â c├íc th╞░ viß╗çn JS nh╞░ IntersectionObserver nß║íp 100% ß║ónh
       await page.evaluate(async () => {
          await new Promise((resolve) => {
              let totalHeight = 0;
@@ -97,23 +97,23 @@ async function crawlSite(siteUrl, siteSlug, uploadDir, onProgress, options = {})
              }, 100);
          });
       });
-      // Đợi thêm 1.5s để server phản hồi hình ảnh sau khi cuộn tới đáy
+      // ─Éß╗úi th├¬m 1.5s ─æß╗â server phß║ún hß╗ôi h├¼nh ß║únh sau khi cuß╗Ön tß╗¢i ─æ├íy
       await page.waitForTimeout(1500);
       // -------------------------------------------------------------
 
-      // Lấy toàn bộ HTML sau khi JS render
+      // Lß║Ñy to├án bß╗Ö HTML sau khi JS render
       const html = await page.content();
       const title = await page.title();
       
       // Sanitize HTML
       const { html: cleanHtml, removedCount } = sanitizeContent(html);
-      console.log(`   ✂️ Removed ${removedCount} tracking elements`);
+      console.log(`   Γ£é∩╕Å Removed ${removedCount} tracking elements`);
 
-      // Tính path tương đối
+      // T├¡nh path t╞░╞íng ─æß╗æi
       const pagePath = getPagePath(url, baseUrl.origin);
       const htmlFilename = pathToFilename(pagePath);
       
-      // Lưu HTML đã sanitize
+      // L╞░u HTML ─æ├ú sanitize
       const htmlPath = path.join(siteDir, 'html', htmlFilename);
       fs.writeFileSync(htmlPath, cleanHtml, 'utf8');
 
@@ -126,7 +126,7 @@ async function crawlSite(siteUrl, siteSlug, uploadDir, onProgress, options = {})
         rawHtml: cleanHtml
       });
 
-      // Tìm tất cả links trong trang
+      // T├¼m tß║Ñt cß║ú links trong trang
       const links = await page.evaluate((origin) => {
         const results = [];
         const anchors = document.querySelectorAll('a[href]');
@@ -137,7 +137,7 @@ async function crawlSite(siteUrl, siteSlug, uploadDir, onProgress, options = {})
 
           let cleanUrl;
           try {
-             // Chống miss page có chứa tham số ?page=2, loại bỏ string tracking
+             // Chß╗æng miss page c├│ chß╗⌐a tham sß╗æ ?page=2, loß║íi bß╗Å string tracking
              const u = new URL(href);
              ['utm_source', 'utm_medium', 'utm_campaign', 'fbclid'].forEach(param => u.searchParams.delete(param));
              cleanUrl = u.toString();
@@ -153,10 +153,10 @@ async function crawlSite(siteUrl, siteSlug, uploadDir, onProgress, options = {})
         return results;
       }, baseUrl.origin);
 
-      // Thêm links mới vào queue NẾU không xài customQueue
+      // Th├¬m links mß╗¢i v├áo queue Nß║╛U kh├┤ng x├ái customQueue
       if (!customQueue || customQueue.length === 0) {
         links.forEach(({ url: cleanLink, priority }) => {
-          // Kiểm tra xem link có nằm trong danh sách exclude bỏ qua không
+          // Kiß╗âm tra xem link c├│ nß║▒m trong danh s├ích exclude bß╗Å qua kh├┤ng
           const isExcluded = excludePaths.some(ex => cleanLink.includes(ex));
 
           if (!isExcluded && !visited.has(cleanLink) && !queued.has(cleanLink)) {
@@ -165,11 +165,11 @@ async function crawlSite(siteUrl, siteSlug, uploadDir, onProgress, options = {})
             totalPages++;
           }
         });
-        // Ưu tiên Sitemap: link menu sẽ được crawl trước để tránh miss trang nếu vuợt quá giới hạn
+        // ╞»u ti├¬n Sitemap: link menu sß║╜ ─æ╞░ß╗úc crawl tr╞░ß╗¢c ─æß╗â tr├ính miss trang nß║┐u vuß╗út qu├í giß╗¢i hß║ín
         queue.sort((a, b) => a.priority - b.priority);
       }
 
-      // Thu thập CSS, JS, Images, và Media assets
+      // Thu thß║¡p CSS, JS, Images, v├á Media assets
       const assets = await page.evaluate(() => {
         const cssLinks = Array.from(document.querySelectorAll('link[rel="stylesheet"]'))
           .map(el => el.href).filter(h => h && h.startsWith('http'));
@@ -211,7 +211,7 @@ async function crawlSite(siteUrl, siteSlug, uploadDir, onProgress, options = {})
            if (el.src && el.src.startsWith('http')) mediaSrcs.push(el.src);
         });
 
-        // --- FINAL BOSS 2: KẺ XUYÊN THẤU INLINE STYLE CSS ---
+        // --- FINAL BOSS 2: Kß║║ XUY├èN THß║ñU INLINE STYLE CSS ---
         document.querySelectorAll('*[style]').forEach(el => {
            const inlineStyle = el.getAttribute('style') || '';
            const match = inlineStyle.match(/url\(['"]?([^'"()]+)['"]?\)/i);
@@ -223,7 +223,7 @@ async function crawlSite(siteUrl, siteSlug, uploadDir, onProgress, options = {})
            }
         });
 
-        // --- FINAL BOSS 3: BẢN ĐỒ MẠNG XÃ HỘI (OG / TWITTER / FAVICON) ---
+        // --- FINAL BOSS 3: Bß║óN ─Éß╗Æ Mß║áNG X├â Hß╗ÿI (OG / TWITTER / FAVICON) ---
         const metaTags = document.querySelectorAll('meta[property="og:image"], meta[name="twitter:image"], meta[itemprop="image"]');
         metaTags.forEach(el => {
             if (el.content && el.content.startsWith('http')) imgSrcs.push(el.content);
@@ -251,44 +251,44 @@ async function crawlSite(siteUrl, siteSlug, uploadDir, onProgress, options = {})
 
       crawledPages++;
       const progress = Math.min(10 + Math.round((crawledPages / Math.max(totalPages, 1)) * 50), 60);
-      onProgress?.({ status: 'crawling', progress, message: `Đang crawl trang ${crawledPages}/${totalPages}...` });
+      onProgress?.({ status: 'crawling', progress, message: `─Éang crawl trang ${crawledPages}/${totalPages}...` });
 
       await page.close();
     } catch (err) {
-      console.error(`   ❌ Error crawling ${url}:`, err.message);
+      console.error(`   Γ¥î Error crawling ${url}:`, err.message);
     }
   }
 
   await browser.close();
-  console.log(`✅ Crawled ${pages.length} pages`);
+  console.log(`Γ£à Crawled ${pages.length} pages`);
 
   // Download CSS assets
-  onProgress?.({ status: 'assets', progress: 65, message: 'Đang tải CSS assets...' });
+  onProgress?.({ status: 'assets', progress: 65, message: '─Éang tß║úi CSS assets...' });
   const uniqueCss = [...new Set(assetMap.css || [])];
   for (const cssUrl of uniqueCss.slice(0, 20)) {
     await downloadAsset(cssUrl, siteDir, 'assets/css', baseUrl.origin);
   }
 
   // Download JS assets
-  onProgress?.({ status: 'assets', progress: 75, message: 'Đang tải JS assets...' });
+  onProgress?.({ status: 'assets', progress: 75, message: '─Éang tß║úi JS assets...' });
   const uniqueJs = [...new Set(assetMap.js || [])];
   for (const jsUrl of uniqueJs.slice(0, 20)) {
     await downloadAsset(jsUrl, siteDir, 'assets/js', baseUrl.origin);
   }
 
   // Download media assets (Video/Audio)
-  onProgress?.({ status: 'assets', progress: 80, message: 'Đang tải Media (Video/Audio)...' });
+  onProgress?.({ status: 'assets', progress: 80, message: '─Éang tß║úi Media (Video/Audio)...' });
   const uniqueMedia = [...new Set(assetMap.media || [])];
   for (const mediaUrl of uniqueMedia.slice(0, 5)) { // Limit media downloads to 5 heavy ones
     await downloadAsset(mediaUrl, siteDir, 'assets/media', baseUrl.origin);
   }
 
-  // Download images và tổ chức Semantic
-  onProgress?.({ status: 'images', progress: 85, message: 'Đang tải và optimize ảnh (phân loại thư mục)...' });
+  // Download images v├á tß╗ò chß╗⌐c Semantic
+  onProgress?.({ status: 'images', progress: 85, message: '─Éang tß║úi v├á optimize ß║únh (ph├ón loß║íi th╞░ mß╗Ñc)...' });
   const mediaItems = [];
   const imageCounts = {};
 
-  // Tính số lần xuất hiện của các hình ảnh để xác định 'global'
+  // T├¡nh sß╗æ lß║ºn xuß║Ñt hiß╗çn cß╗ºa c├íc h├¼nh ß║únh ─æß╗â x├íc ─æß╗ïnh 'global'
   for (const p in assetMap.images) {
      const imgs = [...new Set(assetMap.images[p])];
      imgs.forEach(img => {
@@ -317,7 +317,7 @@ async function crawlSite(siteUrl, siteSlug, uploadDir, onProgress, options = {})
       }
 
       const filename = imgUrl.split('/').pop().split('?')[0];
-      const fixedName = filename.replace(/[^a-zA-Z0-9._-]/g, '_') || \image_ + "" + .jpg\;
+      const fixedName = filename.replace(/[^a-zA-Z0-9._-]/g, '_') || `image_${Date.now()}.jpg`;
       
       const result = await downloadAndOptimizeImage(imgUrl, fixedName, siteDir, targetFolder);
       if (result) {
@@ -330,15 +330,15 @@ async function crawlSite(siteUrl, siteSlug, uploadDir, onProgress, options = {})
     results.filter(r => r !== null).forEach(r => mediaItems.push(r));
     
     const currentProgress = Math.min(85 + Math.round(((i + chunk.length) / targetImages.length) * 10), 98);
-    onProgress?.({ status: 'images', progress: currentProgress, message: \�ang t?i ?nh: \ + Math.min(i + chunk.length, targetImages.length) + \ / \ + targetImages.length + \ ...\ });
+    onProgress?.({ status: 'images', progress: currentProgress, message: `${m} ${Math.min(i + chunk.length, targetImages.length)} / ${targetImages.length} ...` });
   }
-  onProgress?.({ status: 'done', progress: 100, message: 'Hoàn tất!' });
+  onProgress?.({ status: 'done', progress: 100, message: 'Ho├án tß║Ñt!' });
 
   return { pages, mediaItems, siteDir };
 }
 
 /**
- * Download một asset (CSS/JS) về local
+ * Download mß╗Öt asset (CSS/JS) vß╗ü local
  */
 async function downloadAsset(url, siteDir, subdir, baseOrigin) {
   try {
@@ -355,7 +355,7 @@ async function downloadAsset(url, siteDir, subdir, baseOrigin) {
 
     let content = response.data;
 
-    // DEEP CSS PARSING (Ngăn chặn gãy Font / Hình nền ẩn / @import)
+    // DEEP CSS PARSING (Ng─ân chß║╖n g├úy Font / H├¼nh nß╗ün ß║⌐n / @import)
     if (isCss && typeof content === 'string') {
       const cssUrlRegex = /(?:url\(['"]?([^'"()]+)['"]?\))|(?:@import\s+['"]([^'"]+)['"])/gi;
       const cssAssetsDir = path.join(siteDir, 'assets', 'css_assets');
@@ -390,7 +390,7 @@ async function downloadAsset(url, siteDir, subdir, baseOrigin) {
             fs.mkdirSync(cssAssetsDir, { recursive: true });
             fs.writeFileSync(path.join(cssAssetsDir, assetFilename), assetRes.data);
           } catch(e) {
-            console.warn(`⚠️ Cannot download CSS nested asset: ${fullAssetUrl}`);
+            console.warn(`ΓÜá∩╕Å Cannot download CSS nested asset: ${fullAssetUrl}`);
           }
         })());
         
@@ -410,13 +410,13 @@ async function downloadAsset(url, siteDir, subdir, baseOrigin) {
     fs.writeFileSync(filePath, content);
     return filename;
   } catch (err) {
-    console.warn(`⚠️ Failed to download asset: ${url}`);
+    console.warn(`ΓÜá∩╕Å Failed to download asset: ${url}`);
     return null;
   }
 }
 
 /**
- * Helper: Chuyển URL thành page path
+ * Helper: Chuyß╗ân URL th├ánh page path
  */
 function getPagePath(url, origin) {
   const path = url.replace(origin, '').replace(/\/$/, '') || '/';
@@ -424,7 +424,7 @@ function getPagePath(url, origin) {
 }
 
 /**
- * Helper: Chuyển path thành filename để lưu
+ * Helper: Chuyß╗ân path th├ánh filename ─æß╗â l╞░u
  */
 function pathToFilename(pagePath) {
   if (pagePath === '/') return 'index.html';

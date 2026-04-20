@@ -1,35 +1,35 @@
-require('dotenv').config();
+﻿require('dotenv').config();
 const axios = require('axios');
 const cheerio = require('cheerio');
 const db = require('../config/database');
 
 /**
  * i18n Translation Service
- * Quản lý đa ngôn ngữ: extract → translate → inject → export
+ * Quß║ún l├╜ ─æa ng├┤n ngß╗»: extract ΓåÆ translate ΓåÆ inject ΓåÆ export
  */
 
 const SUPPORTED_LANGUAGES = [
-  { code: 'vi', name: 'Tiếng Việt',   flag: '🇻🇳', nativeName: 'Vietnamese' },
-  { code: 'en', name: 'English',      flag: '🇺🇸', nativeName: 'English' },
-  { code: 'ja', name: '日本語',         flag: '🇯🇵', nativeName: 'Japanese' },
-  { code: 'ko', name: '한국어',         flag: '🇰🇷', nativeName: 'Korean' },
-  { code: 'zh', name: '中文',          flag: '🇨🇳', nativeName: 'Chinese' },
-  { code: 'fr', name: 'Français',     flag: '🇫🇷', nativeName: 'French' },
-  { code: 'de', name: 'Deutsch',      flag: '🇩🇪', nativeName: 'German' },
-  { code: 'es', name: 'Español',      flag: '🇪🇸', nativeName: 'Spanish' },
-  { code: 'th', name: 'ภาษาไทย',      flag: '🇹🇭', nativeName: 'Thai' },
-  { code: 'id', name: 'Bahasa',       flag: '🇮🇩', nativeName: 'Indonesian' },
+  { code: 'vi', name: 'Tiß║┐ng Viß╗çt',   flag: '≡ƒç╗≡ƒç│', nativeName: 'Vietnamese' },
+  { code: 'en', name: 'English',      flag: '≡ƒç║≡ƒç╕', nativeName: 'English' },
+  { code: 'ja', name: 'µùÑµ£¼Φ¬₧',         flag: '≡ƒç»≡ƒç╡', nativeName: 'Japanese' },
+  { code: 'ko', name: 'φò£Ω╡¡∞û┤',         flag: '≡ƒç░≡ƒç╖', nativeName: 'Korean' },
+  { code: 'zh', name: 'Σ╕¡µûç',          flag: '≡ƒç¿≡ƒç│', nativeName: 'Chinese' },
+  { code: 'fr', name: 'Fran├ºais',     flag: '≡ƒç½≡ƒç╖', nativeName: 'French' },
+  { code: 'de', name: 'Deutsch',      flag: '≡ƒç⌐≡ƒç¬', nativeName: 'German' },
+  { code: 'es', name: 'Espa├▒ol',      flag: '≡ƒç¬≡ƒç╕', nativeName: 'Spanish' },
+  { code: 'th', name: 'α╕áα╕▓α╕⌐α╕▓α╣äα╕ùα╕ó',      flag: '≡ƒç╣≡ƒç¡', nativeName: 'Thai' },
+  { code: 'id', name: 'Bahasa',       flag: '≡ƒç«≡ƒç⌐', nativeName: 'Indonesian' },
 ];
 
 /**
- * Lấy danh sách ngôn ngữ hỗ trợ
+ * Lß║Ñy danh s├ích ng├┤n ngß╗» hß╗ù trß╗ú
  */
 function getSupportedLanguages() {
   return SUPPORTED_LANGUAGES;
 }
 
 /**
- * Lấy ngôn ngữ đã cấu hình cho 1 site
+ * Lß║Ñy ng├┤n ngß╗» ─æ├ú cß║Ñu h├¼nh cho 1 site
  */
 async function getSiteLanguages(siteId) {
   const [rows] = await db.execute(
@@ -40,13 +40,13 @@ async function getSiteLanguages(siteId) {
 }
 
 /**
- * Thêm ngôn ngữ cho site
+ * Th├¬m ng├┤n ngß╗» cho site
  */
 async function addLanguage(siteId, langCode, isSource = false) {
   const lang = SUPPORTED_LANGUAGES.find(l => l.code === langCode);
-  if (!lang) throw new Error(`Ngôn ngữ không hỗ trợ: ${langCode}`);
+  if (!lang) throw new Error(`Ng├┤n ngß╗» kh├┤ng hß╗ù trß╗ú: ${langCode}`);
 
-  // Nếu set làm nguồn (source), unset các ngôn ngữ khác
+  // Nß║┐u set l├ám nguß╗ôn (source), unset c├íc ng├┤n ngß╗» kh├íc
   if (isSource) {
     await db.execute('UPDATE i18n_languages SET is_source = 0 WHERE site_id = ?', [siteId]);
   }
@@ -62,22 +62,22 @@ async function addLanguage(siteId, langCode, isSource = false) {
 }
 
 /**
- * Xóa ngôn ngữ khỏi site
+ * X├│a ng├┤n ngß╗» khß╗Åi site
  */
 async function removeLanguage(siteId, langCode) {
-  // Không cho xóa ngôn ngữ nguồn
+  // Kh├┤ng cho x├│a ng├┤n ngß╗» nguß╗ôn
   const [[lang]] = await db.execute(
     'SELECT * FROM i18n_languages WHERE site_id = ? AND lang_code = ?',
     [siteId, langCode]
   );
-  if (lang?.is_source) throw new Error('Không thể xóa ngôn ngữ nguồn. Hãy đặt ngôn ngữ khác làm nguồn trước.');
+  if (lang?.is_source) throw new Error('Kh├┤ng thß╗â x├│a ng├┤n ngß╗» nguß╗ôn. H├úy ─æß║╖t ng├┤n ngß╗» kh├íc l├ám nguß╗ôn tr╞░ß╗¢c.');
 
   await db.execute(
     'DELETE FROM i18n_languages WHERE site_id = ? AND lang_code = ?',
     [siteId, langCode]
   );
 
-  // Xóa luôn các bản dịch của ngôn ngữ này
+  // X├│a lu├┤n c├íc bß║ún dß╗ïch cß╗ºa ng├┤n ngß╗» n├áy
   await db.execute(
     'DELETE FROM i18n_translations WHERE site_id = ? AND lang_code = ?',
     [siteId, langCode]
@@ -85,7 +85,7 @@ async function removeLanguage(siteId, langCode) {
 }
 
 /**
- * Lấy tất cả fields cần dịch (chỉ type text và html, bỏ qua image)
+ * Lß║Ñy tß║Ñt cß║ú fields cß║ºn dß╗ïch (chß╗ë type text v├á html, bß╗Å qua image)
  */
 async function getTranslatableFields(siteId, pageId = null) {
   let query = `
@@ -112,7 +112,7 @@ async function getTranslatableFields(siteId, pageId = null) {
 }
 
 /**
- * Lấy bản dịch đã có của một site + lang
+ * Lß║Ñy bß║ún dß╗ïch ─æ├ú c├│ cß╗ºa mß╗Öt site + lang
  */
 async function getTranslations(siteId, langCode, pageId = null) {
   let query = `
@@ -130,14 +130,14 @@ async function getTranslations(siteId, langCode, pageId = null) {
 
   const [rows] = await db.execute(query, params);
 
-  // Build map: field_id → translation record
+  // Build map: field_id ΓåÆ translation record
   const map = {};
   rows.forEach(r => { map[r.field_id] = r; });
   return map;
 }
 
 /**
- * Lưu bản dịch thủ công
+ * L╞░u bß║ún dß╗ïch thß╗º c├┤ng
  */
 async function saveTranslation(siteId, fieldId, langCode, translatedValue, pageId, isAuto = false) {
   await db.execute(
@@ -150,22 +150,22 @@ async function saveTranslation(siteId, fieldId, langCode, translatedValue, pageI
 }
 
 /**
- * Dịch một đoạn text qua Google Translate API (miễn phí, không yêu cầu API key)
+ * Dß╗ïch mß╗Öt ─æoß║ín text qua Google Translate API (miß╗àn ph├¡, kh├┤ng y├¬u cß║ºu API key)
  */
 async function translateText(text, fromLang, toLang) {
   if (!text || !text.trim() || text.trim().length < 2) return text;
   if (fromLang === toLang) return text;
 
-  // B? qua text thu?n s? / k� t? d?c bi?t
+  // B? qua text thu?n s? / k² t? d?c bi?t
   if (/^[\d\s\W]+$/.test(text)) return text;
 
-  // 1. TH? D�NG GEMINI AI N?U C� KEY
+  // 1. TH? D┘NG GEMINI AI N?U C╙ KEY
   const apiKey = process.env.GEMINI_API_KEY;
   if (apiKey) {
     try {
-      const prompt = Translate the following  text to . Ensure technical MEP and engineering terms are translated accurately and contextually. Return ONLY the translated text, no markdown, no conversational filler:\n\n;
+      const prompt = `Translate the following text to ${toLang}. Ensure technical MEP and engineering terms are translated accurately and contextually. Return ONLY the translated text, no markdown, no conversational filler:\n\n${text}`;
       const response = await axios.post(
-        https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
         { contents: [{ parts: [{ text: prompt }] }] },
         { headers: { 'Content-Type': 'application/json' } }
       );
@@ -173,14 +173,14 @@ async function translateText(text, fromLang, toLang) {
         return response.data.candidates[0].content.parts[0].text.trim();
       }
     } catch (e) {
-      console.warn([GEMINI] D?ch th?t b?i, Fallback sang Google. L?i: );
+      console.warn('[GEMINI] D?ch th?t b?i, Fallback sang Google. L?i:', e.message);
     }
   }
 
-  // 2. FALLBACK SANG GOOGLE TRANSLATE MI?N PH�
+  // 2. FALLBACK SANG GOOGLE TRANSLATE MI?N PH═
   const chunk = text.substring(0, 4000); 
   try {
-    const response = await axios.get(https://translate.googleapis.com/translate_a/single, {
+    const response = await axios.get('https://translate.googleapis.com/translate_a/single', {
       params: { client: 'gtx', sl: fromLang, tl: toLang, dt: 't', q: chunk }
     });
 
@@ -193,8 +193,8 @@ async function translateText(text, fromLang, toLang) {
   }}
 
 /**
- * Auto-translate toàn bộ fields của site sang 1 ngôn ngữ đích
- * Có progress callback
+ * Auto-translate to├án bß╗Ö fields cß╗ºa site sang 1 ng├┤n ngß╗» ─æ├¡ch
+ * C├│ progress callback
  */
 async function autoTranslateSite(siteId, fromLang, toLang, onProgress) {
   const fields = await getTranslatableFields(siteId);
@@ -203,12 +203,12 @@ async function autoTranslateSite(siteId, fromLang, toLang, onProgress) {
   let successCount = 0;
   let skipCount = 0;
 
-  onProgress?.({ progress: 0, total, done: 0, message: `Bắt đầu dịch ${total} trường văn bản...` });
+  onProgress?.({ progress: 0, total, done: 0, message: `Bß║»t ─æß║ºu dß╗ïch ${total} tr╞░ß╗¥ng v─ân bß║ún...` });
 
   for (const field of fields) {
     const source = field.current_value?.trim() || '';
 
-    // Bỏ qua HTML phức tạp (chứa nhiều tags) — chỉ dịch text đơn giản
+    // Bß╗Å qua HTML phß╗⌐c tß║íp (chß╗⌐a nhiß╗üu tags) ΓÇö chß╗ë dß╗ïch text ─æ╞ín giß║ún
     const isComplexHtml = field.field_type === 'html' && (source.match(/<[^>]+>/g) || []).length > 15;
     if (isComplexHtml || !source || source.length < 2) {
       skipCount++;
@@ -216,7 +216,7 @@ async function autoTranslateSite(siteId, fromLang, toLang, onProgress) {
       continue;
     }
 
-    // Bỏ qua text đã là URL hoặc số
+    // Bß╗Å qua text ─æ├ú l├á URL hoß║╖c sß╗æ
     if (/^https?:\/\//.test(source) || /^[\d\s.,]+$/.test(source)) {
       skipCount++;
       done++;
@@ -233,32 +233,32 @@ async function autoTranslateSite(siteId, fromLang, toLang, onProgress) {
         skipCount++;
       }
     } catch (err) {
-      console.warn(`   ⚠️ Skip field ${field.field_id}: ${err.message}`);
+      console.warn(`   ΓÜá∩╕Å Skip field ${field.field_id}: ${err.message}`);
       skipCount++;
     }
 
     done++;
     const progress = Math.round((done / total) * 100);
-    onProgress?.({ progress, total, done, successCount, skipCount, message: `Đang dịch... (${done}/${total})` });
+    onProgress?.({ progress, total, done, successCount, skipCount, message: `─Éang dß╗ïch... (${done}/${total})` });
 
-    // Delay nhỏ để tránh spam
+    // Delay nhß╗Å ─æß╗â tr├ính spam
     await new Promise(r => setTimeout(r, 50));
   }
 
-  onProgress?.({ progress: 100, total, done, successCount, skipCount, message: `Hoàn tất! Đã dịch ${successCount} trường.` });
+  onProgress?.({ progress: 100, total, done, successCount, skipCount, message: `Ho├án tß║Ñt! ─É├ú dß╗ïch ${successCount} tr╞░ß╗¥ng.` });
   return { total, successCount, skipCount };
 }
 
 /**
- * Build HTML đã được dịch cho 1 trang + 1 ngôn ngữ
+ * Build HTML ─æ├ú ─æ╞░ß╗úc dß╗ïch cho 1 trang + 1 ng├┤n ngß╗»
  */
 async function buildTranslatedHtml(html, siteId, pageId, langCode) {
   const $ = cheerio.load(html, { decodeEntities: false });
 
-  // Lấy tất cả bản dịch của trang này
+  // Lß║Ñy tß║Ñt cß║ú bß║ún dß╗ïch cß╗ºa trang n├áy
   const translationMap = await getTranslations(siteId, langCode, pageId);
 
-  // Chỉ replace các field có bản dịch
+  // Chß╗ë replace c├íc field c├│ bß║ún dß╗ïch
   $('[data-cms-field-id]').each((i, el) => {
     const fieldId = $(el).attr('data-cms-field-id');
     const translation = translationMap[fieldId];
@@ -272,14 +272,14 @@ async function buildTranslatedHtml(html, siteId, pageId, langCode) {
     }
   });
 
-  // Cập nhật lang attribute
+  // Cß║¡p nhß║¡t lang attribute
   $('html').attr('lang', langCode);
 
   return $.html();
 }
 
 /**
- * Lấy thống kê dịch thuật của 1 site
+ * Lß║Ñy thß╗æng k├¬ dß╗ïch thuß║¡t cß╗ºa 1 site
  */
 async function getTranslationStats(siteId) {
   const [[{ total_fields }]] = await db.execute(
