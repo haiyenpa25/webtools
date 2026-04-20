@@ -88,7 +88,7 @@ const History = {
     } catch (err) {
       Toast.error('Lỗi: ' + err.message);
     }
-  }
+  },
 
   previewDiff(versionId, label) {
     this.rollbackTarget = versionId;
