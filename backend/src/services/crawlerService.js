@@ -319,6 +319,33 @@ async function crawlSite(siteUrl, siteSlug, uploadDir, onProgress, options = {})
           if (url) groups.content.push({ url, label: el.innerText?.trim().substring(0, 50) || '' });
         });
 
+        // ════ CATCH-ALL: BẮT TẤT CẢ LINK CÒN LẠI (quan trọng nhất!) ════
+        // Đảm bảo không bỏ sót link nào dù nằm trong container nào
+        const allKnown = new Set([
+          ...groups.menu.map(l => l.url),
+          ...groups.submenu.map(l => l.url),
+          ...groups.content.map(l => l.url),
+          ...groups.pagination.map(l => l.url),
+          ...groups.footer.map(l => l.url),
+        ]);
+        document.querySelectorAll('a[href]').forEach(a => {
+          const url = cleanUrl(a.href);
+          if (url && !allKnown.has(url)) {
+            groups.other = groups.other || [];
+            groups.other.push({ url, label: getLabel(a) });
+          }
+        });
+
+        // Dedup từng group
+        for (const k of Object.keys(groups)) {
+          const seen = new Set();
+          groups[k] = (groups[k] || []).filter(l => {
+            if (seen.has(l.url)) return false;
+            seen.add(l.url);
+            return true;
+          });
+        }
+
         return groups;
       }, { origin, STRIP: TRACKING_PARAMS });
 
@@ -329,7 +356,6 @@ async function crawlSite(siteUrl, siteSlug, uploadDir, onProgress, options = {})
         enqueue(linkUrl, url, `menu|${label.substring(0, 30)}`, depth + 1, 1);
       });
       discoveredLinks.submenu.forEach(({ url: linkUrl, label }) => {
-        // Tìm parent menu label nếu có
         const parentLabel = menuLabels.get(linkUrl) || label;
         enqueue(linkUrl, url, `submenu|${parentLabel.substring(0, 30)}`, depth + 1, 1);
       });
@@ -342,6 +368,13 @@ async function crawlSite(siteUrl, siteSlug, uploadDir, onProgress, options = {})
       discoveredLinks.footer.forEach(({ url: linkUrl, label }) => {
         enqueue(linkUrl, url, `footer|${label.substring(0, 30)}`, depth + 1, 3);
       });
+      // CATCH-ALL: các link chưa được classify
+      (discoveredLinks.other || []).forEach(({ url: linkUrl, label }) => {
+        enqueue(linkUrl, url, `other|${label.substring(0, 30)}`, depth + 1, 4);
+      });
+
+      const totalDisc = Object.values(discoveredLinks).reduce((s, a) => s + a.length, 0);
+      console.log(`   ↳ Found: ${discoveredLinks.menu?.length}M ${discoveredLinks.submenu?.length}S ${discoveredLinks.content?.length}C ${discoveredLinks.pagination?.length}P ${discoveredLinks.other?.length || 0}O | Queue: ${queue.length}`);
 
       // Re-sort để ưu tiên menu/submenu/pagination
       queue.sort((a, b) => a.priority - b.priority);
