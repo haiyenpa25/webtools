@@ -14,17 +14,32 @@ const { downloadAndOptimizeImage } = require('./imageService');
  */
 
 // ============================================================
-// HELPER: Chuẩn hóa URL — loại bỏ trailing slash, tracking params
+// HELPER: Chuẩn hóa URL — giữ query params có nghĩa, xóa tracking
 // ============================================================
-function normalizeUrl(href, origin) {
+// Các params TRACKING cần xóa
+const TRACKING_PARAMS = new Set([
+  'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term',
+  'fbclid', 'gclid', '_ga', '_gl', 'mc_eid', 'msclkid', 'ref'
+]);
+
+// Các params NGÔN NGỮ cần xóa để normalize (ko ảnh hưởng nội dung)
+const LANG_PARAMS = new Set(['lang', 'language', 'locale']);
+
+function normalizeUrl(href, origin, keepLangParams = false) {
   try {
     const u = new URL(href, origin);
     // Xóa tracking params
-    ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term',
-     'fbclid', 'gclid', 'ref', '_ga', 'lang', 'language'].forEach(p => u.searchParams.delete(p));
-    // Chuẩn hóa path: bỏ trailing slash (trừ root)
-    let pathname = u.pathname.replace(/\/+$/, '') || '/';
-    return u.origin + pathname + (u.search || '');
+    TRACKING_PARAMS.forEach(p => u.searchParams.delete(p));
+    // Xóa lang params (trừ khi cần giữ)
+    if (!keepLangParams) {
+      LANG_PARAMS.forEach(p => u.searchParams.delete(p));
+    }
+    // GIỮ LẠI các query param có nghĩa: slug, cat, id, type, page, paged...
+    // Bỏ trailing slash ở pathname (trừ root)
+    const pathname = u.pathname.replace(/\/+$/, '') || '/';
+    // Tái tạo URL chuẩn
+    const searchStr = u.searchParams.toString();
+    return u.origin + pathname + (searchStr ? '?' + searchStr : '');
   } catch (e) {
     return null;
   }
@@ -275,44 +290,61 @@ async function crawlSite(siteUrl, siteSlug, uploadDir, onProgress, options = {})
         rawHtml: cleanHtml
       });
 
-      // ── PHASE 2B: Quét links thông minh (bao gồm hidden menus sau hover) ──
+      // ── PHASE 2B: Quét links thông minh ──
       const links = await page.evaluate((opts) => {
         const { origin, excludePaths } = opts;
         const results = new Map(); // url -> priority
+
+        // Các tracking params cần xóa
+        const STRIP_PARAMS = ['utm_source','utm_medium','utm_campaign','utm_content',
+          'utm_term','fbclid','gclid','_ga','_gl','mc_eid','msclkid','ref'];
 
         const addLink = (href, priority) => {
           if (!href) return;
           try {
             const u = new URL(href, document.baseURI);
             if (u.origin !== origin) return;
-            // Bỏ qua anchor-only (href="#something" giữ nguyên path)
-            // Chỉ lọc nếu có hash MÀ pathname giống trang hiện tại
-            if (u.hash && u.pathname === window.location.pathname) return;
-            // Remove tracking params
-            ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term',
-             'fbclid', 'gclid', 'ref', '_ga', 'lang', 'language'].forEach(p => u.searchParams.delete(p));
+            // Bỏ qua anchor-only cùng pathname
+            if (u.hash && u.pathname === window.location.pathname && !u.search) return;
+            // Xóa tracking params, GIỮ slug/cat/id/page...
+            STRIP_PARAMS.forEach(p => u.searchParams.delete(p));
             const norm = u.origin + (u.pathname.replace(/\/+$/, '') || '/') + (u.search || '');
             if (excludePaths.some(ex => norm.includes(ex))) return;
-            // Keep highest priority (lowest number)
             if (!results.has(norm) || results.get(norm) > priority) {
               results.set(norm, priority);
             }
           } catch (e) {}
         };
 
-        // Priority 1: Navigation (menu, header, navbar)
-        document.querySelectorAll('nav a[href], header a[href], .menu a[href], .navbar a[href], [class*="menu-item"] a[href], [class*="nav-item"] a[href], [class*="navigation"] a[href]').forEach(a => addLink(a.href, 1));
+        // Priority 1: Navigation links
+        document.querySelectorAll(
+          'nav a[href], header a[href], .menu a[href], .navbar a[href], '+
+          '[class*="menu-item"] a[href], [class*="nav-item"] a[href], '+
+          '[class*="navigation"] a[href]'
+        ).forEach(a => addLink(a.href, 1));
 
-        // Priority 2: Main content links
-        document.querySelectorAll('main a[href], article a[href], .content a[href], [class*="post"] a[href], [class*="article"] a[href]').forEach(a => addLink(a.href, 2));
+        // Priority 1: Pagination links (đặc biệt quan trọng!)
+        document.querySelectorAll(
+          '[class*="pagination"] a[href], [class*="pager"] a[href], '+
+          '[rel="next"], a[href*="/page/"], a[href*="?paged="], a[href*="?page="]'
+        ).forEach(a => addLink(a.href, 1));
 
-        // Priority 2: Category/product links (common patterns)
-        document.querySelectorAll('[class*="category"] a[href], [class*="product"] a[href], [class*="service"] a[href], [class*="san-pham"] a[href], [class*="tin-tuc"] a[href]').forEach(a => addLink(a.href, 2));
+        // Priority 2: Content + category links
+        document.querySelectorAll(
+          'main a[href], article a[href], .content a[href], '+
+          '[class*="post"] a[href], [class*="article"] a[href], '+
+          '[class*="category"] a[href], [class*="product"] a[href], '+
+          '[class*="service"] a[href], [class*="card"] a[href], '+
+          '[class*="item"] a[href], [class*="list"] a[href]'
+        ).forEach(a => addLink(a.href, 2));
 
-        // Priority 3: Pagination (next pages)
-        document.querySelectorAll('[class*="pagination"] a[href], [class*="pager"] a[href], [rel="next"], a[href*="/page/"], a[href*="?paged="], a[href*="?page="]').forEach(a => addLink(a.href, 1));
+        // Priority 2: data-href attributes (PHP/WordPress/custom sites)
+        document.querySelectorAll('[data-href], [data-url], [data-link]').forEach(el => {
+          const href = el.getAttribute('data-href') || el.getAttribute('data-url') || el.getAttribute('data-link');
+          addLink(href, 2);
+        });
 
-        // Priority 3: All other internal links
+        // Priority 3: Tất cả link còn lại
         document.querySelectorAll('a[href]').forEach(a => addLink(a.href, 3));
 
         return [...results.entries()].map(([url, priority]) => ({ url, priority }));

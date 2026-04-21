@@ -1,4 +1,4 @@
-const express = require('express');
+﻿const express = require('express');
 const router = express.Router();
 const db = require('../config/database');
 const { crawlSite } = require('../services/crawlerService');
@@ -35,34 +35,29 @@ router.post('/scan', async (req, res) => {
 
     await page.goto(url, { waitUntil: 'load', timeout: 30000 });
     
-    // Extract Links (Grouped)
+    // Extract Links — giu query params nhu ?slug=, ?cat=
     const links = await page.evaluate((origin) => {
       const results = [];
       const seen = new Set();
+      const STRIP = ['utm_source','utm_medium','utm_campaign','utm_content','utm_term','fbclid','gclid','_ga','ref'];
       document.querySelectorAll('a[href]').forEach(a => {
         const href = a.href;
-        if (!href.startsWith(origin) || href.includes('#')) return;
-        
-        let pathName;
+        if (!href.startsWith(origin)) return;
+        let pathKey, fullPath;
         try {
           const u = new URL(href);
-          pathName = u.pathname;
+          if (u.hash && u.pathname === window.location.pathname && !u.search) return;
+          STRIP.forEach(p => u.searchParams.delete(p));
+          pathKey = u.pathname + (u.search || '');
+          fullPath = pathKey;
         } catch(e) { return; }
-        
-        if (seen.has(pathName)) return;
-        seen.add(pathName);
-        
-        let label = a.innerText.trim();
-        if (!label && a.querySelector('img')) label = 'Image Link';
-        if (!label) label = pathName;
-        
-        const isMenu = !!a.closest('nav, header, .menu, .navbar');
-        
-        results.push({
-          path: pathName,
-          label: label,
-          group: isMenu ? 'menu' : 'body'
-        });
+        if (seen.has(pathKey)) return;
+        seen.add(pathKey);
+        let label = a.innerText.trim().replace(/\s+/g, ' ').substring(0, 80);
+        if (!label && a.querySelector('img')) label = (a.querySelector('img').alt || 'Image Link');
+        if (!label) label = fullPath;
+        const isMenu = !!a.closest('nav, header, .menu, .navbar, [class*="menu"], [class*="nav"]');
+        results.push({ path: fullPath, label: label, group: isMenu ? 'menu' : 'body' });
       });
       return results;
     }, new URL(url).origin);
