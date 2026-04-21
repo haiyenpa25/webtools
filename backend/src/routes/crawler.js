@@ -1,4 +1,4 @@
-﻿const express = require('express');
+const express = require('express');
 const router = express.Router();
 const db = require('../config/database');
 const { crawlSite } = require('../services/crawlerService');
@@ -148,8 +148,9 @@ async function runCrawlJob(siteId, url, slug, uploadDir, jobId, options = {}) {
 
     for (const page of pages) {
       const [pageResult] = await db.execute(
-        'INSERT INTO pages (site_id, url, path, title, html_file, is_home) VALUES (?, ?, ?, ?, ?, ?)',
-        [siteId, page.url, page.path, page.title, page.htmlFile, page.isHome ? 1 : 0]
+        'INSERT INTO pages (site_id, url, path, title, html_file, is_home, parent_url, nav_group, depth) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [siteId, page.url, page.path, page.title, page.htmlFile, page.isHome ? 1 : 0,
+         page.parentUrl || null, page.navGroup || 'content', page.depth || 0]
       );
       const pageId = pageResult.insertId;
       insertedPages.push({ ...page, id: pageId });
